@@ -25,10 +25,12 @@ def main(argv: list[str] | None = None) -> int:
         description="Open-source AI coding agent for the terminal (BYOK + local models + QA).",
     )
     parser.add_argument("--version", action="version", version=f"forge {__version__}")
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--repo", default=".", help="workspace root")
     parser.add_argument("--repo", default=".", help="workspace root")
     sub = parser.add_subparsers(dest="cmd")
 
-    run = sub.add_parser("run", help="one-shot non-interactive task")
+    run = sub.add_parser("run", help="one-shot non-interactive task", parents=[common])
     run.add_argument("task", help="what to do")
     run.add_argument("--json", action="store_true")
 
@@ -43,9 +45,9 @@ def main(argv: list[str] | None = None) -> int:
     auth_sub.add_parser("status")
 
     sub.add_parser("models", help="list local and remote models")
-    sub.add_parser("qa", help="run the integrated QA suite")
-    sub.add_parser("init", help="write AGENTS.md")
-    sub.add_parser("doctor", help="check providers, local runtimes, and QA")
+    sub.add_parser("qa", help="run the integrated QA suite", parents=[common])
+    sub.add_parser("init", help="write AGENTS.md", parents=[common])
+    sub.add_parser("doctor", help="check providers, local runtimes, and QA", parents=[common])
 
     args = parser.parse_args(argv)
     root = Path(args.repo).resolve()

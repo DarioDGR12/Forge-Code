@@ -31,6 +31,7 @@ def write_file(root: Path, args: dict[str, Any]) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     content = str(args.get("content") or "")
     path.write_text(content, encoding="utf-8")
+    _invalidate_pyc(path)
     return f"wrote {args['path']} ({len(content)} bytes)"
 
 
@@ -49,7 +50,18 @@ def edit_file(root: Path, args: dict[str, Any]) -> str:
     if count > 1 and not args.get("replace_all"):
         return f"error: old_string found {count} times; pass replace_all=true or make it unique"
     path.write_text(text.replace(old, new), encoding="utf-8")
+    _invalidate_pyc(path)
     return f"edited {args['path']} ({count} replacement{'s' if count != 1 else ''})"
+
+
+def _invalidate_pyc(path: Path) -> None:
+    if path.suffix != ".py":
+        return
+    cache = path.parent / "__pycache__"
+    if not cache.is_dir():
+        return
+    for item in cache.glob(f"{path.stem}.*"):
+        item.unlink(missing_ok=True)
 
 
 def list_dir(root: Path, args: dict[str, Any]) -> str:

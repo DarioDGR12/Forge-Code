@@ -62,6 +62,7 @@ def test_agent_auto_qa_feeds_failure(tmp_path: Path) -> None:
 
     def fake_complete(_cfg, messages, _tools):
         stage["n"] += 1
+        last_user = next((m.content for m in reversed(messages) if m.role == "user"), "")
         if stage["n"] == 1:
             return Completion(
                 message=Message(
@@ -76,8 +77,8 @@ def test_agent_auto_qa_feeds_failure(tmp_path: Path) -> None:
                 ),
                 finish="tool",
             )
-        joined = "\n".join(m.content for m in messages)
-        if "Integrated QA failed" in joined:
+        if "Integrated QA failed" in last_user and not stage.get("fixed"):
+            stage["fixed"] = True
             return Completion(
                 message=Message(
                     role="assistant",

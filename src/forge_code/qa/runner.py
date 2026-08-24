@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -45,7 +46,23 @@ def detect_checks(root: Path) -> list[tuple[str, list[str]]]:
     if (root / "pyproject.toml").exists() or (root / "pytest.ini").exists() or any(
         root.glob("tests/test_*.py")
     ):
-        checks.append(("pytest", [sys.executable, "-m", "pytest", "-q"]))
+        checks.append(
+            (
+                "pytest",
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "--rootdir",
+                    ".",
+                    "-o",
+                    "testpaths=",
+                    "-o",
+                    "addopts=",
+                ],
+            )
+        )
     elif any(root.glob("test_*.py")) or any(root.glob("tests/*.py")):
         checks.append(("unittest", [sys.executable, "-m", "unittest", "discover", "-q"]))
     if (root / "package.json").exists():
@@ -83,6 +100,12 @@ def run_qa(root: Path, timeout: int = 120) -> QAReport:
     for name, command in checks:
         started = time.perf_counter()
         try:
+            env = {
+                key: value
+                for key, value in os.environ.items()
+                if not key.startswith("PYTEST_")
+            }
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
             completed = subprocess.run(
                 command,
                 cwd=root,
@@ -90,6 +113,7 @@ def run_qa(root: Path, timeout: int = 120) -> QAReport:
                 text=True,
                 timeout=timeout,
                 check=False,
+                env=env,
             )
             output = (completed.stdout or "") + (completed.stderr or "")
             passed = completed.returncode == 0
