@@ -6,6 +6,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from forge_code.usage import Usage
+
 Role = Literal["system", "user", "assistant", "tool"]
 
 
@@ -49,6 +51,7 @@ class Message:
 class Completion:
     message: Message
     finish: Literal["stop", "tool"] = "stop"
+    usage: Usage = field(default_factory=Usage)
 
 
 def _dump_args(arguments: dict[str, Any]) -> str:

@@ -91,11 +91,26 @@ def detect_checks(root: Path) -> list[tuple[str, list[str]]]:
         ]
         if not any(name == "pytest" for name, _ in checks):
             checks.append(("compileall", compile_cmd))
+    if (root / "ruff.toml").exists() or (root / ".ruff.toml").exists():
+        checks.append(("ruff", ["ruff", "check", "."]))
+    if (root / "mypy.ini").exists() or (root / "pyproject.toml").exists() and _pyproject_has(root, "mypy"):
+        checks.append(("mypy", ["mypy", "."]))
+    if (root / "Makefile").exists():
+        makefile = (root / "Makefile").read_text(encoding="utf-8", errors="replace")
+        if "\ntest:" in f"\n{makefile}" or makefile.startswith("test:"):
+            checks.append(("make test", ["make", "test"]))
     return checks
 
 
-def run_qa(root: Path, timeout: int = 120) -> QAReport:
+def _pyproject_has(root: Path, section: str) -> bool:
+    text = (root / "pyproject.toml").read_text(encoding="utf-8", errors="replace")
+    return f"[tool.{section}" in text
+
+
+def run_qa(root: Path, timeout: int = 120, extra: list[str] | None = None) -> QAReport:
     checks = detect_checks(root)
+    for command in extra or []:
+        checks.append((command, command.split()))
     results: list[QAResult] = []
     for name, command in checks:
         started = time.perf_counter()

@@ -8,15 +8,20 @@ import re
 from pathlib import Path
 from typing import Any
 
+from forge_code.ignore import IgnoreMatcher
+
 SKIP = {".git", ".venv", "__pycache__", "node_modules", ".forge", "dist", "build"}
 
 
 def glob_files(root: Path, args: dict[str, Any]) -> str:
     pattern = str(args.get("pattern") or "*")
+    matcher = IgnoreMatcher(root)
     matches = [
         p.relative_to(root).as_posix()
         for p in root.rglob(pattern)
-        if p.is_file() and not any(part in SKIP for part in p.parts)
+        if p.is_file()
+        and not any(part in SKIP for part in p.parts)
+        and matcher.allowed_file(p)
     ]
     matches.sort()
     if len(matches) > 200:
@@ -33,11 +38,15 @@ def grep_files(root: Path, args: dict[str, Any]) -> str:
     except re.error as exc:
         return f"error: invalid regex: {exc}"
     glob = str(args.get("glob") or "*")
+    matcher = IgnoreMatcher(root)
     hits: list[str] = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [name for name in dirnames if name not in SKIP]
         for name in filenames:
             path = Path(dirpath) / name
+            rel = path.relative_to(root).as_posix()
+            if matcher.ignored(rel):
+                continue
             if glob != "*" and not path.match(glob):
                 continue
             try:

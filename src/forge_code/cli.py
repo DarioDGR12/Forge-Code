@@ -16,7 +16,9 @@ from forge_code.models import Message
 from forge_code.providers.factory import list_remote_models, probe_local
 from forge_code.qa.runner import run_qa
 from forge_code.repl import AGENTS_TEMPLATE, start_repl
-from forge_code.ui import auth_table, console, error, qa_panel, speak
+from forge_code.session import export_markdown, list_sessions, load_session
+from forge_code.tools.registry import default_registry
+from forge_code.ui import auth_table, console, error, qa_panel, session_table, speak
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -28,6 +30,7 @@ def main(argv: list[str] | None = None) -> int:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--repo", default=".", help="workspace root")
     parser.add_argument("--repo", default=".", help="workspace root")
+    parser.add_argument("--resume", help="resume a session id in the REPL")
     sub = parser.add_subparsers(dest="cmd")
 
     run = sub.add_parser("run", help="one-shot non-interactive task", parents=[common])
@@ -48,13 +51,19 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("qa", help="run the integrated QA suite", parents=[common])
     sub.add_parser("init", help="write AGENTS.md", parents=[common])
     sub.add_parser("doctor", help="check providers, local runtimes, and QA", parents=[common])
+    sub.add_parser("tools", help="list agent tools")
+
+    sessions = sub.add_parser("sessions", help="list or export saved sessions", parents=[common])
+    sessions.add_argument("action", nargs="?", default="list", choices=["list", "show", "export"])
+    sessions.add_argument("session_id", nargs="?")
+    sessions.add_argument("--out", help="markdown path for export")
 
     args = parser.parse_args(argv)
     root = Path(args.repo).resolve()
     cfg = load_config()
 
     if args.cmd is None:
-        return start_repl(root, cfg)
+        return start_repl(root, cfg, session_id=args.resume)
     if args.cmd == "run":
         return _cmd_run(root, cfg, args.task, args.json)
     if args.cmd == "auth":
@@ -62,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "models":
         return _cmd_models(cfg)
     if args.cmd == "qa":
-        report = run_qa(root, timeout=cfg.qa.timeout)
+        report = run_qa(root, timeout=cfg.qa.timeout, extra=cfg.qa.extra)
         qa_panel(report)
         return 0 if report.ok else 1
     if args.cmd == "init":
@@ -75,6 +84,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "doctor":
         return _cmd_doctor(root, cfg)
+    if args.cmd == "tools":
+        for name in default_registry().names():
+            console.print(f"  {name}")
+        return 0
+    if args.cmd == "sessions":
+        return _cmd_sessions(root, args)
     error(f"unknown command {args.cmd}")
     return 2
 
@@ -92,6 +107,8 @@ def _cmd_run(root: Path, cfg, task: str, as_json: bool) -> int:
                 {
                     "text": result.text,
                     "writes": result.writes,
+                    "steps": result.steps,
+                    "usage": result.usage.to_dict(),
                     "qa": result.qa.to_dict() if result.qa else None,
                 },
                 indent=2,
@@ -125,7 +142,7 @@ def _cmd_auth(args: argparse.Namespace) -> int:
 def _cmd_models(cfg) -> int:
     local = probe_local()
     console.print("[bold]Local runtimes[/]")
-    console.print(f"  ollama   {', '.join(local['ollama']) or '(offline)'}")
+    console.print(f"  ollama    {', '.join(local['ollama']) or '(offline)'}")
     console.print(f"  llama.cpp {', '.join(local['llamacpp']) or '(offline)'}")
     remote = list_remote_models(cfg)
     if remote:
@@ -139,6 +156,9 @@ def _cmd_doctor(root: Path, cfg) -> int:
     console.print(f"repo     {root}")
     console.print(f"provider {cfg.provider}")
     console.print(f"model    {cfg.resolved_model()}")
+    console.print(f"mode     {cfg.mode}")
+    console.print(f"qa auto  {cfg.qa.auto}")
+    console.print(f"bash     {cfg.permissions.bash}")
     auth_table(status_rows())
     local = probe_local()
     console.print(
@@ -147,10 +167,44 @@ def _cmd_doctor(root: Path, cfg) -> int:
     console.print(
         f"llama.cpp {'up: ' + ', '.join(local['llamacpp']) if local['llamacpp'] else 'down'}"
     )
-    report = run_qa(root, timeout=cfg.qa.timeout)
+    console.print("tools    " + ", ".join(default_registry().names()))
+    report = run_qa(root, timeout=cfg.qa.timeout, extra=cfg.qa.extra)
     qa_panel(report)
     save_config(cfg)
     return 0 if report.ok else 1
+
+
+def _cmd_sessions(root: Path, args: argparse.Namespace) -> int:
+    if args.action == "list":
+        rows = [
+            (
+                item.id,
+                (item.updated_at or item.created_at)[:19],
+                f"{item.provider}/{item.model}",
+                item.title or "(untitled)",
+            )
+            for item in list_sessions(root)[:30]
+        ]
+        if not rows:
+            console.print("no sessions yet")
+            return 0
+        session_table(rows)
+        return 0
+    if not args.session_id:
+        error("session id required")
+        return 2
+    try:
+        session = load_session(root, args.session_id)
+    except FileNotFoundError as exc:
+        error(str(exc))
+        return 2
+    if args.action == "show":
+        console.print(export_markdown(session))
+        return 0
+    path = Path(args.out) if args.out else Path(f"forge-session-{session.id}.md")
+    path.write_text(export_markdown(session), encoding="utf-8")
+    console.print(f"wrote {path}")
+    return 0
 
 
 if __name__ == "__main__":

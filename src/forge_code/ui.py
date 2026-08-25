@@ -12,22 +12,24 @@ from rich.text import Text
 from forge_code import __version__
 from forge_code.config import AppConfig
 from forge_code.qa.runner import QAReport
+from forge_code.usage import Usage, format_usage
 
 console = Console()
 
 
-def banner(cfg: AppConfig, repo: str) -> None:
-    title = Text()
-    title.append("Forge", style="bold cyan")
-    title.append("  ", style="dim")
-    title.append(f"v{__version__}", style="dim")
+def banner(cfg: AppConfig, repo: str, session_id: str = "") -> None:
+    theme = cfg.theme or "cyan"
+    title = Text.assemble(("Forge", f"bold {theme}"), ("  ", "dim"), (f"v{__version__}", "dim"))
+    session_line = f"[dim]session[/] {session_id}\n" if session_id else ""
     body = (
-        f"[dim]repo[/] {repo}\n"
-        f"[dim]model[/] {cfg.provider}/{cfg.resolved_model()}\n"
-        f"[dim]mode[/]  {cfg.mode}    [dim]qa[/] {'on' if cfg.qa.auto else 'off'}\n\n"
-        "[dim]Type a task, or /help. This is not affiliated with OpenCode or Anthropic.[/]"
+        f"{session_line}"
+        f"[dim]repo[/]     {repo}\n"
+        f"[dim]model[/]    {cfg.provider}/{cfg.resolved_model()}\n"
+        f"[dim]mode[/]     {cfg.mode}    [dim]qa[/] {'on' if cfg.qa.auto else 'off'}    "
+        f"[dim]bash[/] {cfg.permissions.bash}\n\n"
+        "[dim]Type a task, or /help. Not affiliated with OpenCode or Anthropic.[/]"
     )
-    console.print(Panel(body, title=title, border_style="cyan", padding=(1, 2)))
+    console.print(Panel(body, title=title, border_style=theme, padding=(1, 2)))
 
 
 def speak(text: str) -> None:
@@ -39,12 +41,27 @@ def speak(text: str) -> None:
 
 
 def tool_line(message: str) -> None:
-    console.print(f"  [cyan]▸[/] [dim]{message}[/]")
+    console.print(f"  [cyan]▸[/] [white]{message}[/]")
+
+
+def tool_result(message: str) -> None:
+    snippet = message.strip().splitlines()
+    if not snippet:
+        return
+    preview = snippet[0][:120]
+    extra = f"  [dim](+{len(snippet) - 1} lines)[/]" if len(snippet) > 1 else ""
+    console.print(f"    [dim]{preview}[/]{extra}")
 
 
 def qa_panel(report: QAReport) -> None:
     style = "green" if report.ok else "red"
     console.print(Panel(report.summary(), title="QA", border_style=style))
+
+
+def usage_line(model: str, usage: Usage) -> None:
+    if usage.total <= 0:
+        return
+    console.print(f"  [dim]{format_usage(model, usage)}[/]")
 
 
 def error(message: str) -> None:
@@ -55,9 +72,13 @@ def info(message: str) -> None:
     console.print(f"[dim]{message}[/]")
 
 
+def ok(message: str) -> None:
+    console.print(f"[green]✓[/] {message}")
+
+
 def auth_table(rows: list[tuple[str, str, str]]) -> None:
-    table = Table(title="BYOK / local providers")
-    table.add_column("provider")
+    table = Table(title="BYOK / local providers", expand=False)
+    table.add_column("provider", style="bold")
     table.add_column("endpoint")
     table.add_column("status")
     for name, url, state in rows:
@@ -66,23 +87,31 @@ def auth_table(rows: list[tuple[str, str, str]]) -> None:
     console.print(table)
 
 
+def session_table(rows: list[tuple[str, str, str, str]]) -> None:
+    table = Table(title="Sessions")
+    table.add_column("id")
+    table.add_column("updated")
+    table.add_column("model")
+    table.add_column("title")
+    for row in rows:
+        table.add_row(*row)
+    console.print(table)
+
+
 def help_text() -> str:
     return """
-**Commands**
-- `/help` — this screen
-- `/status` — repo, model, QA
-- `/model NAME` — switch model
-- `/provider NAME` — openai, anthropic, openrouter, groq, ollama, llamacpp, custom
-- `/mode build|plan` — plan is read-only
-- `/qa` — run the integrated test/lint suite
-- `/qa on` / `/qa off` — auto-QA after edits
-- `/init` — write AGENTS.md
-- `/clear` — new conversation
-- `/exit` — quit
+**REPL**
+- `/help` `/status` `/tools`
+- `/model NAME` `/provider NAME`
+- `/mode build|plan`
+- `/qa` `/qa on` `/qa off`
+- `/compact` — shrink conversation
+- `/cost` — token usage this session
+- `/sessions` `/resume ID` `/export [path]`
+- `/init` `/clear` `/exit`
 
-**Non-interactive**
+**CLI**
 `forge run "fix the failing tests"`
-`forge qa`
-`forge auth login openai`
-`forge models`
+`forge qa` · `forge auth login openai` · `forge models` · `forge sessions`
+`forge doctor`
 """.strip()

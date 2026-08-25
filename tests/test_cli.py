@@ -29,3 +29,12 @@ def test_auth_status(tmp_path, monkeypatch) -> None:
 
 def test_qa_on_broken_example() -> None:
     assert main(["qa", "--repo", "examples/broken-add"]) == 1
+
+
+def test_tools_lists_builtins() -> None:
+    assert main(["tools"]) == 0
+
+
+def test_sessions_empty(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    assert main(["sessions", "--repo", str(tmp_path)]) == 0

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from forge_code.paths import config_dir
+from forge_code.permissions import PermissionConfig
 
 DEFAULT_PROVIDERS: dict[str, dict[str, str]] = {
     "openai": {
@@ -64,6 +65,13 @@ DEFAULT_PROVIDERS: dict[str, dict[str, str]] = {
 class QAConfig:
     auto: bool = True
     timeout: int = 120
+    extra: list[str] = field(default_factory=list)
+
+
+@dataclass
+class RetryConfig:
+    attempts: int = 3
+    backoff: float = 0.8
 
 
 @dataclass
@@ -72,8 +80,13 @@ class AppConfig:
     model: str = ""
     mode: str = "build"
     qa: QAConfig = field(default_factory=QAConfig)
+    retry: RetryConfig = field(default_factory=RetryConfig)
+    permissions: PermissionConfig = field(default_factory=PermissionConfig)
     providers: dict[str, dict[str, str]] = field(default_factory=lambda: dict(DEFAULT_PROVIDERS))
     custom_base_url: str = ""
+    max_steps: int = 24
+    compact_after_chars: int = 48_000
+    theme: str = "cyan"
 
     def provider_spec(self, name: str | None = None) -> dict[str, str]:
         key = name or self.provider
@@ -107,7 +120,10 @@ def load_config() -> AppConfig:
     path = config_path()
     if path.exists():
         raw = json.loads(path.read_text(encoding="utf-8"))
+    raw = {**raw, **_repo_overlay()}
     qa_raw = raw.get("qa") or {}
+    retry_raw = raw.get("retry") or {}
+    perm_raw = raw.get("permissions") or {}
     providers = dict(DEFAULT_PROVIDERS)
     providers.update(raw.get("providers") or {})
     cfg = AppConfig(
@@ -117,9 +133,21 @@ def load_config() -> AppConfig:
         qa=QAConfig(
             auto=bool(qa_raw.get("auto", True)),
             timeout=int(qa_raw.get("timeout", 120)),
+            extra=list(qa_raw.get("extra") or []),
+        ),
+        retry=RetryConfig(
+            attempts=int(retry_raw.get("attempts", 3)),
+            backoff=float(retry_raw.get("backoff", 0.8)),
+        ),
+        permissions=PermissionConfig(
+            bash=str(perm_raw.get("bash") or "allow"),
+            deny_globs=list(perm_raw.get("deny_globs") or PermissionConfig().deny_globs),
         ),
         providers=providers,
         custom_base_url=raw.get("custom_base_url") or "",
+        max_steps=int(raw.get("max_steps") or 24),
+        compact_after_chars=int(raw.get("compact_after_chars") or 48_000),
+        theme=str(raw.get("theme") or "cyan"),
     )
     return cfg
 
@@ -130,8 +158,13 @@ def save_config(cfg: AppConfig) -> None:
         "model": cfg.model,
         "mode": cfg.mode,
         "qa": asdict(cfg.qa),
+        "retry": asdict(cfg.retry),
+        "permissions": asdict(cfg.permissions),
         "providers": cfg.providers,
         "custom_base_url": cfg.custom_base_url,
+        "max_steps": cfg.max_steps,
+        "compact_after_chars": cfg.compact_after_chars,
+        "theme": cfg.theme,
     }
     path = config_path()
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -165,3 +198,16 @@ def resolve_api_key(cfg: AppConfig, provider: str | None = None) -> str:
     if spec.get("local") == "true":
         return "local"
     return ""
+
+
+def _repo_overlay() -> dict[str, Any]:
+    cwd = Path.cwd()
+    for candidate in (cwd / ".forge" / "config.json", cwd / "forge.json"):
+        if candidate.is_file():
+            try:
+                data = json.loads(candidate.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                return {}
+            if isinstance(data, dict):
+                return data
+    return {}

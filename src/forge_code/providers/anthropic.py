@@ -9,6 +9,7 @@ import urllib.request
 from typing import Any
 
 from forge_code.models import Completion, Message, ToolCall
+from forge_code.usage import Usage
 
 
 def chat(
@@ -46,9 +47,14 @@ def chat(
                 )
             )
     finish = "tool" if tool_calls or data.get("stop_reason") == "tool_use" else "stop"
+    usage_raw = data.get("usage") or {}
     return Completion(
         message=Message(role="assistant", content="".join(text_parts), tool_calls=tool_calls),
         finish=finish,
+        usage=Usage(
+            prompt_tokens=int(usage_raw.get("input_tokens") or 0),
+            completion_tokens=int(usage_raw.get("output_tokens") or 0),
+        ),
     )
 
 

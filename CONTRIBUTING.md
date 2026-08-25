@@ -1,7 +1,7 @@
 # Contributing
 
 Forge is an Apache 2.0 coding agent. Useful PRs add a provider, a QA detector,
-or a tool — not an IDE and not a license change.
+a tool, or a permission/ignore rule — not an IDE and not a license change.
 
 ```bash
 python -m venv .venv

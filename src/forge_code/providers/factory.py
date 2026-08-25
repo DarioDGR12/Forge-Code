@@ -11,6 +11,7 @@ from typing import Any
 from forge_code.config import AppConfig, resolve_api_key
 from forge_code.models import Completion, Message
 from forge_code.providers import anthropic, openai_compat
+from forge_code.retry import with_retry
 
 
 def complete(
@@ -23,27 +24,31 @@ def complete(
     api_key = resolve_api_key(cfg)
     base_url = spec.get("base_url") or ""
     model = cfg.resolved_model()
-    if kind == "anthropic":
-        if not api_key or api_key == "local":
-            raise RuntimeError("Anthropic needs a key. Run: forge auth login anthropic")
-        return anthropic.chat(
+
+    def _call() -> Completion:
+        if kind == "anthropic":
+            if not api_key or api_key == "local":
+                raise RuntimeError("Anthropic needs a key. Run: forge auth login anthropic")
+            return anthropic.chat(
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                messages=messages,
+                tools=tools,
+            )
+        if not api_key and spec.get("local") != "true":
+            raise RuntimeError(
+                f"{cfg.provider} needs a key. Run: forge auth login {cfg.provider}"
+            )
+        return openai_compat.chat(
             base_url=base_url,
-            api_key=api_key,
+            api_key=api_key or "local",
             model=model,
             messages=messages,
             tools=tools,
         )
-    if not api_key and spec.get("local") != "true":
-        raise RuntimeError(
-            f"{cfg.provider} needs a key. Run: forge auth login {cfg.provider}"
-        )
-    return openai_compat.chat(
-        base_url=base_url,
-        api_key=api_key or "local",
-        model=model,
-        messages=messages,
-        tools=tools,
-    )
+
+    return with_retry(_call, attempts=cfg.retry.attempts, backoff=cfg.retry.backoff)
 
 
 def list_remote_models(cfg: AppConfig, provider: str | None = None) -> list[str]:
