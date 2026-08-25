@@ -13,7 +13,9 @@ AskFn = Callable[[str, dict[str, Any]], bool]
 from forge_code.tools.base import ToolSpec
 from forge_code.tools.bash import run_bash
 from forge_code.tools.fs import edit_file, list_dir, read_file, write_file
-from forge_code.tools.git import git_diff, git_log, git_status
+from forge_code.tools.explore import explore_repo
+from forge_code.tools.fetch import fetch_url
+from forge_code.tools.git import git_commit, git_diff, git_log, git_status
 from forge_code.tools.patch import apply_patch
 from forge_code.tools.search import glob_files, grep_files
 from forge_code.tools.todo import read_todo, update_todo
@@ -37,6 +39,9 @@ class ToolRegistry:
 
     def add(self, spec: ToolSpec) -> None:
         self._tools[spec.name] = spec
+
+    def remove(self, name: str) -> None:
+        self._tools.pop(name, None)
 
     def names(self) -> list[str]:
         return list(self._tools)
@@ -87,6 +92,11 @@ class ToolRegistry:
                 return f"error: user denied bash: {command}"
             if not decision.allowed:
                 return f"error: {decision.reason}"
+        if name == "git_commit":
+            for rel in args.get("paths") or []:
+                decision = self.gate.review_write(str(rel))
+                if not decision.allowed:
+                    return f"error: {decision.reason}"
         return None
 
 
@@ -239,5 +249,40 @@ def _builtin_tools() -> list[ToolSpec]:
             description="Read the current todo list.",
             parameters={"type": "object", "properties": {}},
             fn=read_todo,
+        ),
+        ToolSpec(
+            name="git_commit",
+            description="Stage the given paths and create a git commit. No -a, amend, or hooks skip.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "message": STR,
+                    "paths": {"type": "array", "items": STR},
+                },
+                "required": ["message", "paths"],
+            },
+            fn=git_commit,
+            writes=True,
+            runs_command=True,
+        ),
+        ToolSpec(
+            name="fetch_url",
+            description="GET a public http(s) URL and return text (docs only, size-capped).",
+            parameters={
+                "type": "object",
+                "properties": {"url": STR},
+                "required": ["url"],
+            },
+            fn=fetch_url,
+        ),
+        ToolSpec(
+            name="explore",
+            description="Read-only subagent: search the repo and answer a question. No edits.",
+            parameters={
+                "type": "object",
+                "properties": {"question": STR},
+                "required": ["question"],
+            },
+            fn=explore_repo,
         ),
     ]

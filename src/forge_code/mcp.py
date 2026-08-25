@@ -67,7 +67,7 @@ class MCPClient:
             stderr=subprocess.PIPE,
             env=env,
         )
-        self.request("initialize", {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "forge", "version": "0.3.0"}})
+        self.request("initialize", {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "forge", "version": "0.4.0"}})
         self.notify("notifications/initialized", {})
         listed = self.request("tools/list", {})
         self._tools = list((listed or {}).get("tools") or [])
@@ -148,7 +148,11 @@ class MCPClient:
             self._buf += chunk
 
 
+_CLIENTS: list[MCPClient] = []
+
+
 def load_mcp_tools(servers: dict[str, MCPServerConfig]) -> list[ToolSpec]:
+    close_mcp()
     specs: list[ToolSpec] = []
     for name, cfg in servers.items():
         if not cfg.command:
@@ -156,6 +160,20 @@ def load_mcp_tools(servers: dict[str, MCPServerConfig]) -> list[ToolSpec]:
         try:
             client = MCPClient(name, cfg)
             specs.extend(client.tool_specs())
+            _CLIENTS.append(client)
         except (OSError, MCPError):
             continue
     return specs
+
+
+def close_mcp() -> None:
+    while _CLIENTS:
+        _CLIENTS.pop().close()
+
+
+def describe_mcp(servers: dict[str, MCPServerConfig]) -> list[tuple[str, str, str]]:
+    rows: list[tuple[str, str, str]] = []
+    for name, cfg in servers.items():
+        cmdline = " ".join([cfg.command, *cfg.args]).strip()
+        rows.append((name, cmdline, "configured"))
+    return rows

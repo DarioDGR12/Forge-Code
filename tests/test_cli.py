@@ -48,3 +48,23 @@ def test_ci_requires_task(monkeypatch) -> None:
     monkeypatch.delenv("FORGE_TASK", raising=False)
     monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
     assert main(["ci"]) == 2
+
+
+def test_mcp_lists_none(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    assert main(["mcp"]) == 0
+
+
+def test_mcp_lists_configured(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    (tmp_path / ".forge").mkdir()
+    (tmp_path / ".forge" / "config.json").write_text(
+        '{"mcp":{"docs":{"command":"npx","args":["-y","demo"]}}}\n',
+        encoding="utf-8",
+    )
+    assert main(["mcp"]) == 0
+    out = capsys.readouterr().out
+    assert "docs" in out
+    assert "npx" in out

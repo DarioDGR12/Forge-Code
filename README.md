@@ -6,13 +6,13 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.3.0  
+Apache License 2.0 · v0.4.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
 $ forge
 
-  Forge  v0.3.0
+  Forge  v0.4.0
   session  a1b2c3d4e5f6
   repo     ~/src/app
   model    ollama/qwen2.5-coder:7b
@@ -30,6 +30,8 @@ $ forge
 
 Python 3.10+.
 
+From a clone:
+
 ```bash
 git clone https://github.com/DarioDGR12/Forge-Code.git
 cd Forge-Code
@@ -39,7 +41,15 @@ pip install -e ".[dev]"
 forge --help
 ```
 
+Or:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DarioDGR12/Forge-Code/main/install.sh | bash
+```
+
 `forge` with no arguments opens the interactive agent.
+
+Spanish prompts: `export FORGE_LANG=es` (also honors `LANG=es_*` for `/bash ask`).
 
 ## Bring your own key
 
@@ -61,6 +71,8 @@ forge auth status
 | OpenRouter | `OPENROUTER_API_KEY` | `https://openrouter.ai/api/v1`           |
 | Groq       | `GROQ_API_KEY`       | `https://api.groq.com/openai/v1`         |
 | Custom     | `FORGE_API_KEY`      | `FORGE_BASE_URL` (any OpenAI-compatible) |
+
+OpenAI-compatible and Anthropic responses stream token-by-token. Ctrl+C cancels.
 
 ```bash
 export OPENAI_API_KEY=sk-...
@@ -140,6 +152,8 @@ Pin extra checks in `.forge/config.json`:
 - `/undo` and `forge undo` restore the last turn (git snapshot when possible)
 - Ctrl+C cancels the current model/tool loop
 - After edits, Forge runs language diagnostics (pyright/ruff, tsc, go vet) when those tools exist
+- `fetch_url` is GET-only, http(s), size-capped, and rejects localhost / private hosts
+- `git_commit` stages explicit paths only (no `-a`, amend, or hook skip)
 
 ## Commands
 
@@ -155,22 +169,59 @@ Pin extra checks in `.forge/config.json`:
 | `forge sessions` | List saved conversations |
 | `forge sessions export ID` | Write a markdown transcript |
 | `forge tools` | List agent tools |
+| `forge mcp` | List configured MCP servers |
 | `forge init` | Write `AGENTS.md` |
 | `forge doctor` | Health check |
 | `forge undo` | Revert the last agent edits |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/cost` `/undo` `/bash` `/sessions` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/cost` `/undo` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
 
 Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
 ## Tools
 
-`read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `bash` `git_status` `git_diff` `git_log` `todo_write` `todo_read`
+`read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore`
+
+- **explore** — read-only nested search (plan-mode tools only; cannot recurse)
+- **fetch_url** — public documentation, 80 KB cap, HTML stripped
+- **git_commit** — `git add -- <paths>` then `git commit -m`
+
+After writes, the REPL shows a unified diff of the turn.
+
+## Hooks
+
+Optional executable scripts in `.forge/hooks/`:
+
+| Hook | When |
+| --- | --- |
+| `pre_edit` | Before `write_file` / `edit_file` / `apply_patch`. Non-zero exit blocks the edit. |
+| `post_edit` | After a successful write in the turn |
+| `post_turn` | After the agent finishes (including Ctrl+C) |
+
+Environment: `FORGE_HOOK`, `FORGE_ROOT`, plus `FORGE_PATH` / `FORGE_PATHS` / `FORGE_TASK` when relevant.
+
+```bash
+mkdir -p .forge/hooks
+cat > .forge/hooks/pre_edit <<'SH'
+#!/bin/sh
+echo "editing $FORGE_PATH"
+SH
+chmod +x .forge/hooks/pre_edit
+```
+
+## Skills
+
+Markdown snippets in `.forge/skills/*.md` are injected into the system prompt (up to 8 files, 4 KB each).
+
+```bash
+mkdir -p .forge/skills
+echo "Prefer pytest. Do not add new dependencies." > .forge/skills/python.md
+```
 
 ## MCP
 
-Add stdio MCP servers in `.forge/config.json`. Each server’s tools show up as `mcp_<name>_<tool>`.
+Add stdio MCP servers in `.forge/config.json`. Each server’s tools show up as `mcp_<name>_<tool>`. Clients are closed when the CLI or REPL exits.
 
 ```json
 {
@@ -181,6 +232,11 @@ Add stdio MCP servers in `.forge/config.json`. Each server’s tools show up as 
     }
   }
 }
+```
+
+```bash
+forge mcp
+# REPL: /mcp
 ```
 
 ## GitHub Actions
@@ -203,7 +259,9 @@ Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can 
 | --- | --- |
 | `AGENTS.md` / `FORGE.md` | Instructions injected every turn |
 | `.forgeignore` | Hide paths from glob/grep/tree |
-| `.forge/config.json` | Repo overlay (provider, QA, permissions) |
+| `.forge/config.json` | Repo overlay (provider, QA, permissions, MCP) |
+| `.forge/hooks/` | `pre_edit` / `post_edit` / `post_turn` scripts |
+| `.forge/skills/*.md` | Extra system-prompt skills |
 | `~/.config/forge-code/` | User config + credentials |
 
 ## Quick demo (no API)

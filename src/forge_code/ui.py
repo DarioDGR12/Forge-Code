@@ -87,6 +87,16 @@ def auth_table(rows: list[tuple[str, str, str]]) -> None:
     console.print(table)
 
 
+def mcp_table(rows: list[tuple[str, str, str]]) -> None:
+    table = Table(title="MCP servers", expand=False)
+    table.add_column("name", style="bold")
+    table.add_column("command")
+    table.add_column("status")
+    for name, cmdline, state in rows:
+        table.add_row(name, cmdline, state)
+    console.print(table)
+
+
 def session_table(rows: list[tuple[str, str, str, str]]) -> None:
     table = Table(title="Sessions")
     table.add_column("id")
@@ -109,6 +119,7 @@ def help_text() -> str:
 - `/cost` — token usage this session
 - `/undo` — revert last agent edits
 - `/bash allow|ask|deny`
+- `/mcp` — configured MCP servers
 - `/sessions` `/resume ID` `/export [path]`
 - `/init` `/clear` `/exit`
 - Ctrl+C stops the current turn
@@ -117,5 +128,5 @@ def help_text() -> str:
 `forge run "fix the failing tests"`
 `forge ci --task "..."` · `forge undo`
 `forge qa` · `forge auth login openai` · `forge models` · `forge sessions`
-`forge doctor`
+`forge mcp` · `forge doctor`
 """.strip()

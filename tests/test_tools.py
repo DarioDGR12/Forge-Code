@@ -50,3 +50,9 @@ def test_grep_and_glob(tmp_path: Path) -> None:
     assert "a.py" in found
     hits = tools.execute(tmp_path, "grep", {"pattern": "def hello"})
     assert "a.py:1" in hits
+
+
+def test_v04_tools_are_registered() -> None:
+    names = default_registry().names()
+    for name in ("git_commit", "fetch_url", "explore"):
+        assert name in names

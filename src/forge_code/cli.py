@@ -13,14 +13,14 @@ from forge_code import __version__
 from forge_code.agent import Agent, undo_turn
 from forge_code.auth import login, logout, status_rows
 from forge_code.config import load_config, save_config
+from forge_code.mcp import close_mcp, describe_mcp
 from forge_code.models import Message
-from forge_code.ui import ok
 from forge_code.providers.factory import list_remote_models, probe_local
 from forge_code.qa.runner import run_qa
 from forge_code.repl import AGENTS_TEMPLATE, start_repl
 from forge_code.session import export_markdown, list_sessions, load_session
 from forge_code.tools.registry import default_registry
-from forge_code.ui import auth_table, console, error, qa_panel, session_table, speak
+from forge_code.ui import auth_table, console, error, mcp_table, ok, qa_panel, session_table, speak
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -60,6 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("init", help="write AGENTS.md", parents=[common])
     sub.add_parser("doctor", help="check providers, local runtimes, and QA", parents=[common])
     sub.add_parser("tools", help="list agent tools")
+    sub.add_parser("mcp", help="list configured MCP servers", parents=[common])
 
     sessions = sub.add_parser("sessions", help="list or export saved sessions", parents=[common])
     sessions.add_argument("action", nargs="?", default="list", choices=["list", "show", "export"])
@@ -101,6 +102,8 @@ def main(argv: list[str] | None = None) -> int:
         for name in default_registry().names():
             console.print(f"  {name}")
         return 0
+    if args.cmd == "mcp":
+        return _cmd_mcp(cfg)
     if args.cmd == "sessions":
         return _cmd_sessions(root, args)
     error(f"unknown command {args.cmd}")
@@ -114,6 +117,8 @@ def _cmd_run(root: Path, cfg, task: str, as_json: bool) -> int:
     except RuntimeError as exc:
         error(str(exc))
         return 2
+    finally:
+        close_mcp()
     if as_json:
         print(
             json.dumps(
@@ -215,10 +220,24 @@ def _cmd_doctor(root: Path, cfg) -> int:
         f"llama.cpp {'up: ' + ', '.join(local['llamacpp']) if local['llamacpp'] else 'down'}"
     )
     console.print("tools    " + ", ".join(default_registry().names()))
+    rows = describe_mcp(cfg.mcp)
+    if rows:
+        mcp_table(rows)
+    else:
+        console.print("mcp      (none)")
     report = run_qa(root, timeout=cfg.qa.timeout, extra=cfg.qa.extra)
     qa_panel(report)
     save_config(cfg)
     return 0 if report.ok else 1
+
+
+def _cmd_mcp(cfg) -> int:
+    rows = describe_mcp(cfg.mcp)
+    if not rows:
+        console.print("no MCP servers in config")
+        return 0
+    mcp_table(rows)
+    return 0
 
 
 def _cmd_sessions(root: Path, args: argparse.Namespace) -> int:

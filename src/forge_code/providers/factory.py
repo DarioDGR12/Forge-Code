@@ -42,6 +42,9 @@ def complete(
                 model=model,
                 messages=messages,
                 tools=tools,
+                stream=bool(cfg.stream and on_delta is not None),
+                on_delta=on_delta,
+                cancel=cancel,
             )
         if not api_key and spec.get("local") != "true":
             raise RuntimeError(

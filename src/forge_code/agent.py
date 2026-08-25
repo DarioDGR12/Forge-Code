@@ -11,6 +11,8 @@ from forge_code.ask import confirm_bash
 from forge_code.compact import compact_messages, estimate_chars
 from forge_code.config import AppConfig
 from forge_code.diagnostics import format_diagnostics, run_diagnostics
+from forge_code.diffview import preview_writes
+from forge_code.hooks import run_hook
 from forge_code.interrupt import CancelFlag, CancelledError
 from forge_code.mcp import load_mcp_tools
 from forge_code.models import Completion, Message
@@ -48,6 +50,7 @@ class Agent:
         complete_fn: CompleteFn | None = None,
         cancel: CancelFlag | None = None,
         ask=None,
+        attach_mcp: bool = True,
     ):
         self.root = root
         self.cfg = cfg
@@ -57,8 +60,9 @@ class Agent:
             self.registry.gate = gate
         if ask is not None:
             self.registry.ask = ask
-        for spec in load_mcp_tools(cfg.mcp):
-            self.registry.add(spec)
+        if attach_mcp:
+            for spec in load_mcp_tools(cfg.mcp):
+                self.registry.add(spec)
         self.max_steps = max_steps or cfg.max_steps
         self.on_event = on_event or (lambda _kind, _msg: None)
         self.complete_fn = complete_fn or default_complete
@@ -111,6 +115,23 @@ class Agent:
                     preview = _preview_args(call.name, call.arguments)
                     self.on_event("tool", preview)
                     if call.name in {"write_file", "edit_file", "apply_patch"}:
+                        hook = run_hook(
+                            self.root,
+                            "pre_edit",
+                            {"FORGE_PATH": str(call.arguments.get("path") or "")},
+                        )
+                        if hook.startswith("error:"):
+                            result = hook
+                            messages.append(
+                                Message(
+                                    role="tool",
+                                    content=result,
+                                    tool_call_id=call.id,
+                                    name=call.name,
+                                )
+                            )
+                            self.on_event("hook", hook)
+                            continue
                         if not snapped:
                             checkpoint(self.root, note=user_text[:60])
                             snapped = True
@@ -132,6 +153,12 @@ class Agent:
                     )
                     self.on_event("tool_result", result[:800])
                 if writes:
+                    diff = preview_writes(self.root, writes)
+                    if diff:
+                        self.on_event("diff", diff)
+                    post = run_hook(self.root, "post_edit", {"FORGE_PATHS": " ".join(writes)})
+                    if post:
+                        self.on_event("hook", post)
                     diags = run_diagnostics(self.root, writes)
                     if diags:
                         report = format_diagnostics(diags)
@@ -163,6 +190,7 @@ class Agent:
             else:
                 last_text = last_text or "Stopped: max tool steps reached."
         except CancelledError:
+            run_hook(self.root, "post_turn", {"FORGE_TASK": user_text[:200]})
             history.clear()
             history.extend(messages)
             return TurnResult(
@@ -175,6 +203,7 @@ class Agent:
                 interrupted=True,
             )
 
+        run_hook(self.root, "post_turn", {"FORGE_TASK": user_text[:200]})
         history.clear()
         history.extend(messages)
         return TurnResult(
@@ -222,4 +251,10 @@ def _preview_args(name: str, arguments: dict) -> str:
         return f"grep {arguments.get('pattern', '')}"
     if name == "apply_patch":
         return "apply_patch"
+    if name == "git_commit":
+        return f"git_commit {arguments.get('message', '')}"
+    if name == "fetch_url":
+        return f"fetch_url {arguments.get('url', '')}"
+    if name == "explore":
+        return f"explore {arguments.get('question', '')}"
     return f"{name} {arguments}"

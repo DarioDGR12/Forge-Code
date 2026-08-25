@@ -27,6 +27,30 @@ def git_log(root: Path, args: dict[str, Any]) -> str:
     return _run(root, ["log", f"-{max(1, min(count, 30))}", "--oneline"])
 
 
+def git_commit(root: Path, args: dict[str, Any]) -> str:
+    message = str(args.get("message") or "").strip()
+    if not message:
+        return "error: commit message is required"
+    if message.startswith("-"):
+        return "error: message cannot look like a flag"
+    files = args.get("paths") or []
+    if isinstance(files, str):
+        files = [files]
+    if not isinstance(files, list) or not files:
+        return "error: pass paths to stage (no commit -a)"
+    for rel in files:
+        rel = str(rel)
+        if rel.startswith("-") or ".." in Path(rel).parts:
+            return f"error: invalid path {rel}"
+        target = (root / rel).resolve()
+        if root.resolve() not in target.parents and target != root.resolve():
+            return f"error: path escaped workspace: {rel}"
+    staged = _run(root, ["add", "--", *[str(p) for p in files]])
+    if staged.startswith("error:"):
+        return staged
+    return _run(root, ["commit", "-m", message])
+
+
 def _run(root: Path, args: list[str]) -> str:
     try:
         completed = subprocess.run(

@@ -9,7 +9,9 @@ from pathlib import Path
 from forge_code.agent import Agent, undo_turn
 from forge_code.compact import compact_messages
 from forge_code.config import AppConfig, save_config
+from forge_code.i18n import t
 from forge_code.interrupt import CancelFlag
+from forge_code.mcp import close_mcp, describe_mcp
 from forge_code.models import Message
 from forge_code.qa.runner import run_qa
 from forge_code.ui import console
@@ -80,6 +82,10 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
             info(message.splitlines()[0] if message else "QA")
         elif kind == "lsp":
             info(message.splitlines()[0] if message else "LSP")
+        elif kind == "diff":
+            info(message.splitlines()[0] if message else "diff")
+        elif kind == "hook":
+            info(message.splitlines()[0] if message else "hook")
         elif kind == "compact":
             info(message)
         elif kind == "assistant":
@@ -91,8 +97,9 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
         try:
             raw = _read_input()
         except (EOFError, KeyboardInterrupt):
-            info("\nbye")
+            info("\n" + t("bye"))
             save_session(root, session)
+            close_mcp()
             return 0
         if not raw:
             continue
@@ -100,6 +107,7 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
             code = _slash(raw, root, cfg, history, session, totals)
             if code == "exit":
                 save_session(root, session)
+                close_mcp()
                 return 0
             continue
         cancel.reset()
@@ -107,7 +115,7 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
             result = agent.run(history, raw)
         except KeyboardInterrupt:
             cancel.cancel()
-            info("interrupted — /undo reverts the last edits")
+            info(t("interrupted"))
             continue
         except RuntimeError as exc:
             error(str(exc))
@@ -120,7 +128,7 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
         session.model = cfg.resolved_model()
         save_session(root, session)
         if result.interrupted:
-            info("interrupted — /undo reverts the last edits")
+            info(t("interrupted"))
         if result.qa is not None:
             qa_panel(result.qa)
         usage_line(cfg.resolved_model(), result.usage)
@@ -180,6 +188,7 @@ def _enable_readline(root: Path) -> None:
         "/init",
         "/clear",
         "/undo",
+        "/mcp",
         "/bash allow",
         "/bash ask",
         "/bash deny",
@@ -283,6 +292,14 @@ def _slash(
         return ""
     if cmd == "undo":
         ok(undo_turn(root))
+        return ""
+    if cmd == "mcp":
+        rows = describe_mcp(cfg.mcp)
+        if not rows:
+            info("no MCP servers in config")
+        else:
+            for name, cmdline, state in rows:
+                info(f"{name}  {cmdline}  {state}")
         return ""
     if cmd == "bash" and arg in {"allow", "ask", "deny"}:
         cfg.permissions.bash = arg

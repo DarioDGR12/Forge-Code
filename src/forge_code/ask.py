@@ -14,8 +14,10 @@ def confirm_bash(_name: str, args: dict[str, Any]) -> bool:
     if not sys.stdin.isatty():
         return False
     command = str(args.get("command") or "")
+    from forge_code.i18n import t
+
     try:
-        reply = input(f"  allow bash `{command}`? [y/N] ").strip().lower()
+        reply = input("  " + t("allow_bash", cmd=command)).strip().lower()
     except EOFError:
         return False
-    return reply in {"y", "yes"}
+    return reply in {"y", "yes", "s", "si", "sí"}
