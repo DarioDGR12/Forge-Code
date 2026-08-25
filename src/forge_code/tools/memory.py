@@ -31,7 +31,7 @@ def memory_write(root: Path, args: dict[str, Any]) -> str:
     note = str(args.get("note") or "").strip()
     if not note:
         return "error: note is required"
-    if note.startswith("-"):
+    if note.startswith("--"):
         return "error: note cannot look like a flag"
     note = note.replace("\n", " ")[:MAX_NOTE]
     path = memory_path(root)

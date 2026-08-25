@@ -21,6 +21,9 @@ STRINGS = {
         "no_reply": "no assistant reply yet",
         "budget_hit": "stopped — session budget reached",
         "shared": "wrote {path}",
+        "no_matches": "no matches",
+        "find_usage": "usage: /find <query>",
+        "pinned": "pinned to memory",
     },
     "es": {
         "forging": "forjando…",
@@ -37,6 +40,9 @@ STRINGS = {
         "no_reply": "aún no hay respuesta",
         "budget_hit": "detenido — presupuesto de la sesión agotado",
         "shared": "escrito {path}",
+        "no_matches": "sin coincidencias",
+        "find_usage": "uso: /find <consulta>",
+        "pinned": "anclado en memoria",
     },
 }
 

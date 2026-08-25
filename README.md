@@ -6,13 +6,13 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.8.0  
+Apache License 2.0 · v0.9.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
 $ forge
 
-  Forge  v0.8.0
+  Forge  v0.9.0
   session  a1b2c3d4e5f6
   repo     ~/src/app
   model    ollama/qwen2.5-coder:7b
@@ -163,12 +163,15 @@ Pin extra checks in `.forge/config.json`:
 | `forge --resume ID` | Continue a saved session |
 | `forge run "task"` | One shot |
 | `forge run --plan "task"` | One shot, read-only |
+| `forge run -q "task"` | One shot, no transcript |
 | `forge ask "question"` | Read-only Q&A (plan mode) |
 | `forge run "task" --json` | Machine-readable result |
 | `forge auth login <p>` | BYOK |
 | `forge models` | Local + remote models |
 | `forge qa` | Run the detected suite |
 | `forge sessions` | List saved conversations |
+| `forge sessions search QUERY` | Search titles and messages |
+| `forge find QUERY` | Same as `sessions search` |
 | `forge sessions export ID` | Write a markdown transcript |
 | `forge tools` | List agent tools |
 | `forge mcp` | List configured MCP servers |
@@ -186,7 +189,7 @@ Pin extra checks in `.forge/config.json`:
 | `forge theme [name]` | Show or set the REPL color |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
 
 Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
@@ -264,6 +267,8 @@ Caps also accept `FORGE_MAX_COST`, `FORGE_MAX_TOKENS`, `FORGE_MAX_COST_TURN`, an
 ```
 
 `/share` and `forge share` write `.forge/shares/<session>.md`. `forge shares` lists them.
+
+Search past chats with `forge find "auth"` or `/find auth`. `/pin` appends the last assistant reply (or a note) to `.forge/memory.md`.
 
 ## Hooks
 

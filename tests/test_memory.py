@@ -11,7 +11,7 @@ from forge_code.tools.registry import default_registry
 def test_memory_append_and_prompt(tmp_path: Path) -> None:
     assert memory_read(tmp_path, {}) == "(empty memory)"
     assert memory_write(tmp_path, {"note": ""}).startswith("error:")
-    assert "flag" in memory_write(tmp_path, {"note": "- sneak"})
+    assert "flag" in memory_write(tmp_path, {"note": "--sneak"})
     wrote = memory_write(tmp_path, {"note": "we use pytest"})
     assert "remembered" in wrote
     text = memory_read(tmp_path, {})

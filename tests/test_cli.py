@@ -67,6 +67,14 @@ def test_alias_budget_share_cli(tmp_path, monkeypatch) -> None:
     assert main(["theme"]) == 0
     assert main(["theme", "magenta"]) == 0
     assert main(["theme", "nope"]) == 2
+    assert main(["find", "--repo", str(tmp_path), "nothing"]) == 0
+    assert main(["sessions", "search", "--repo", str(tmp_path)]) == 2
+    try:
+        main(["find"])
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError("find without query should exit")
 
 
 def test_ask_and_worktree_cli(tmp_path, monkeypatch) -> None:
@@ -100,6 +108,39 @@ def test_run_plan_sets_mode(tmp_path, monkeypatch) -> None:
     assert seen["task"] == "where is add?"
     assert main(["run", "--plan", "inspect", "--repo", str(tmp_path)]) == 0
     assert seen["mode"] == "plan"
+
+
+def test_run_quiet_hides_transcript(tmp_path, monkeypatch, capsys) -> None:
+    from forge_code.agent import TurnResult
+
+    def fake_run(self, history, task):
+        return TurnResult(text="UNIQUE_QUIET_MARKER")
+
+    monkeypatch.setattr("forge_code.cli.Agent.run", fake_run)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    assert main(["run", "inspect", "--repo", str(tmp_path)]) == 0
+    assert "UNIQUE_QUIET_MARKER" in capsys.readouterr().out
+    assert main(["run", "-q", "inspect", "--repo", str(tmp_path)]) == 0
+    assert "UNIQUE_QUIET_MARKER" not in capsys.readouterr().out
+    assert main(["ask", "-q", "where?", "--repo", str(tmp_path)]) == 0
+    assert "UNIQUE_QUIET_MARKER" not in capsys.readouterr().out
+
+
+def test_find_cli_hits(tmp_path, monkeypatch, capsys) -> None:
+    from forge_code.models import Message
+    from forge_code.session import new_session, save_session
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    session = new_session(tmp_path, provider="ollama", model="local")
+    session.messages.append(Message(role="user", content="where is auth handled?"))
+    session.touch("auth question")
+    save_session(tmp_path, session)
+    assert main(["find", "--repo", str(tmp_path), "auth"]) == 0
+    out = capsys.readouterr().out
+    assert session.id in out
+    assert "auth" in out.lower()
+    assert main(["sessions", "search", "auth", "--repo", str(tmp_path)]) == 0
+    assert session.id in capsys.readouterr().out
 
 
 def test_init_diff_commands_memory(tmp_path, monkeypatch, capsys) -> None:

@@ -27,11 +27,23 @@ from forge_code.session import (
     list_sessions,
     list_shares,
     load_session,
+    search_sessions,
     share_session,
 )
 from forge_code.tools.memory import load_memory
 from forge_code.tools.registry import default_registry
-from forge_code.ui import THEMES, auth_table, console, error, mcp_table, ok, qa_panel, session_table, speak
+from forge_code.ui import (
+    THEMES,
+    auth_table,
+    console,
+    error,
+    mcp_table,
+    ok,
+    qa_panel,
+    search_table,
+    session_table,
+    speak,
+)
 from forge_code.usage import format_budget
 from forge_code.worktree import add_worktree, list_worktrees, remove_worktree
 
@@ -52,13 +64,16 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("task", help="what to do")
     run.add_argument("--json", action="store_true")
     run.add_argument("--plan", action="store_true", help="read-only (no edits)")
+    run.add_argument("--quiet", "-q", action="store_true", help="no transcript output")
 
     ask = sub.add_parser("ask", help="read-only question (plan mode)", parents=[common])
     ask.add_argument("question", help="what to inspect")
+    ask.add_argument("--quiet", "-q", action="store_true")
 
     ci = sub.add_parser("ci", help="non-interactive run for GitHub Actions", parents=[common])
     ci.add_argument("--task", help="task text (or $FORGE_TASK / event)")
     ci.add_argument("--json", action="store_true")
+    ci.add_argument("--quiet", "-q", action="store_true")
 
     sub.add_parser("undo", help="revert the last agent edits", parents=[common])
 
@@ -103,9 +118,12 @@ def main(argv: list[str] | None = None) -> int:
     theme_p.add_argument("name", nargs="?")
 
     sessions = sub.add_parser("sessions", help="list or export saved sessions", parents=[common])
-    sessions.add_argument("action", nargs="?", default="list", choices=["list", "show", "export"])
+    sessions.add_argument("action", nargs="?", default="list", choices=["list", "show", "export", "search"])
     sessions.add_argument("session_id", nargs="?")
     sessions.add_argument("--out", help="markdown path for export")
+
+    find = sub.add_parser("find", help="search saved sessions", parents=[common])
+    find.add_argument("query", nargs="+")
 
     args = parser.parse_args(argv)
     root = Path(args.repo).resolve()
@@ -114,9 +132,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd is None:
         return start_repl(root, cfg, session_id=args.resume)
     if args.cmd == "run":
-        return _cmd_run(root, cfg, args.task, args.json, plan=args.plan)
+        return _cmd_run(root, cfg, args.task, args.json, plan=args.plan, quiet=args.quiet)
     if args.cmd == "ask":
-        return _cmd_run(root, cfg, args.question, False, plan=True)
+        return _cmd_run(root, cfg, args.question, False, plan=True, quiet=args.quiet)
     if args.cmd == "ci":
         return _cmd_ci(root, cfg, args)
     if args.cmd == "undo":
@@ -182,11 +200,13 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_theme(cfg, args.name)
     if args.cmd == "sessions":
         return _cmd_sessions(root, args)
+    if args.cmd == "find":
+        return _cmd_find(root, " ".join(args.query))
     error(f"unknown command {args.cmd}")
     return 2
 
 
-def _cmd_run(root: Path, cfg, task: str, as_json: bool, plan: bool = False) -> int:
+def _cmd_run(root: Path, cfg, task: str, as_json: bool, plan: bool = False, quiet: bool = False) -> int:
     if plan:
         cfg.mode = "plan"
         cfg.qa.auto = False
@@ -212,10 +232,11 @@ def _cmd_run(root: Path, cfg, task: str, as_json: bool, plan: bool = False) -> i
             )
         )
     else:
-        if result.text:
-            speak(result.text)
-        if result.qa is not None:
-            qa_panel(result.qa)
+        if not quiet:
+            if result.text:
+                speak(result.text)
+            if result.qa is not None:
+                qa_panel(result.qa)
     if result.interrupted:
         return 130
     return 0 if (result.qa is None or result.qa.ok) else 1
@@ -229,7 +250,7 @@ def _cmd_ci(root: Path, cfg, args: argparse.Namespace) -> int:
     if not task:
         error("ci needs --task or FORGE_TASK")
         return 2
-    code = _cmd_run(root, cfg, task, args.json)
+    code = _cmd_run(root, cfg, task, args.json, quiet=bool(getattr(args, "quiet", False)))
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         Path(summary).write_text(
@@ -453,6 +474,11 @@ def _cmd_sessions(root: Path, args: argparse.Namespace) -> int:
             return 0
         session_table(rows)
         return 0
+    if args.action == "search":
+        if not args.session_id:
+            error("search query required")
+            return 2
+        return _cmd_find(root, args.session_id)
     if not args.session_id:
         error("session id required")
         return 2
@@ -467,6 +493,17 @@ def _cmd_sessions(root: Path, args: argparse.Namespace) -> int:
     path = Path(args.out) if args.out else Path(f"forge-session-{session.id}.md")
     path.write_text(export_markdown(session), encoding="utf-8")
     console.print(f"wrote {path}")
+    return 0
+
+
+def _cmd_find(root: Path, query: str) -> int:
+    hits = search_sessions(root, query)
+    if not hits:
+        console.print(t("no_matches"))
+        return 0
+    search_table(
+        [(hit.session_id, hit.role, hit.title, hit.snippet) for hit in hits]
+    )
     return 0
 
 

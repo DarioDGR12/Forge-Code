@@ -91,6 +91,57 @@ def load_session(repo: Path, session_id: str) -> Session:
     return Session.from_dict(json.loads(path.read_text(encoding="utf-8")))
 
 
+@dataclass
+class SearchHit:
+    session_id: str
+    title: str
+    role: str
+    snippet: str
+
+
+def search_sessions(repo: Path, query: str, limit: int = 30) -> list[SearchHit]:
+    needle = query.strip().lower()
+    if not needle:
+        return []
+    hits: list[SearchHit] = []
+    for session in list_sessions(repo):
+        title = session.title or "(untitled)"
+        if needle in session.id.lower() or needle in title.lower():
+            hits.append(SearchHit(session.id, title, "title", title[:120]))
+            if len(hits) >= limit:
+                return hits
+        for message in session.messages:
+            if message.role == "system":
+                continue
+            body = message.content or ""
+            if needle not in body[:8_000].lower():
+                continue
+            hits.append(
+                SearchHit(
+                    session.id,
+                    title,
+                    message.role,
+                    _snippet(body, needle),
+                )
+            )
+            if len(hits) >= limit:
+                return hits
+    return hits
+
+
+def _snippet(text: str, needle: str, width: int = 100) -> str:
+    lower = text.lower()
+    idx = lower.find(needle)
+    if idx < 0:
+        chunk = text[:width]
+    else:
+        start = max(0, idx - 24)
+        chunk = text[start : start + width]
+        if start:
+            chunk = "…" + chunk
+    return " ".join(chunk.split())
+
+
 def list_sessions(repo: Path) -> list[Session]:
     items: list[Session] = []
     for path in sessions_dir(repo).glob("*.json"):

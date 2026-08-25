@@ -64,3 +64,21 @@ def test_alias_and_budget_slash(tmp_path: Path, monkeypatch) -> None:
     assert cfg.theme == "magenta"
     assert _slash_theme(cfg, "nope") == ""
     assert cfg.theme == "magenta"
+
+
+def test_find_and_pin(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    cfg = AppConfig()
+    history = [Message(role="assistant", content="use pytest for tests")]
+    session = _session()
+    empty = _slash("/find", tmp_path, cfg, history, session, Usage())
+    assert empty == ""
+    none = _slash("/find zzz-no-hit", tmp_path, cfg, history, session, Usage())
+    assert none == ""
+    pinned = _slash("/pin", tmp_path, cfg, history, session, Usage())
+    assert pinned == ""
+    mem = (tmp_path / ".forge" / "memory.md").read_text(encoding="utf-8")
+    assert "pytest" in mem
+    _slash("/pin prefer ruff", tmp_path, cfg, history, session, Usage())
+    mem = (tmp_path / ".forge" / "memory.md").read_text(encoding="utf-8")
+    assert "ruff" in mem

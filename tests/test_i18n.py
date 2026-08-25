@@ -12,6 +12,8 @@ def test_lang_and_spanish(monkeypatch) -> None:
     assert "s/N" in t("allow_bash", cmd="ls")
     assert "nada" in t("no_diff")
     assert "pregunta" in t("ask_usage")
+    assert "coincidencias" in t("no_matches")
+    assert "anclado" in t("pinned")
 
 
 def test_lang_english_default(monkeypatch) -> None:

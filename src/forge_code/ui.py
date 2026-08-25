@@ -120,6 +120,17 @@ def session_table(rows: list[tuple[str, str, str, str]]) -> None:
     console.print(table)
 
 
+def search_table(rows: list[tuple[str, str, str, str]]) -> None:
+    table = Table(title="Search")
+    table.add_column("session")
+    table.add_column("role")
+    table.add_column("title")
+    table.add_column("hit")
+    for row in rows:
+        table.add_row(*row)
+    console.print(table)
+
+
 def help_text() -> str:
     return """
 **REPL**
@@ -135,6 +146,8 @@ def help_text() -> str:
 - `/ask <question>` — read-only Q&A
 - `/retry` — repeat last task
 - `/last` — reprint last assistant reply
+- `/find <query>` — search saved sessions
+- `/pin [note]` — append last reply (or note) to memory
 - `/alias` `/budget` `/share` `/shares`
 - `/theme NAME` `/quiet` `/quiet on|off`
 - `/commands` `/memory`
@@ -146,8 +159,9 @@ def help_text() -> str:
 - Ctrl+C stops the current turn
 
 **CLI**
-`forge run "fix the failing tests"` · `forge run --plan "…"`
+`forge run "fix the failing tests"` · `forge run --plan "…"` · `forge run -q "…"`
 `forge ask "where is auth handled?"`
+`forge find "auth"` · `forge sessions search auth`
 `forge ci --task "..."` · `forge undo` · `forge diff`
 `forge worktree add|list|remove NAME`
 `forge qa` · `forge auth login openai` · `forge models` · `forge sessions`

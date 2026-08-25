@@ -24,9 +24,10 @@ from forge_code.session import (
     load_session,
     new_session,
     save_session,
+    search_sessions,
     share_session,
 )
-from forge_code.tools.memory import load_memory
+from forge_code.tools.memory import load_memory, memory_write
 from forge_code.tools.registry import default_registry
 from forge_code.ui import (
     THEMES,
@@ -37,6 +38,7 @@ from forge_code.ui import (
     info,
     ok,
     qa_panel,
+    search_table,
     session_table,
     speak,
     tool_line,
@@ -204,6 +206,8 @@ def _enable_readline(root: Path) -> None:
         "/ask ",
         "/retry",
         "/last",
+        "/find ",
+        "/pin",
         "/commands",
         "/memory",
         "/alias ",
@@ -398,6 +402,34 @@ def _slash(
                 speak(message.content)
                 return ""
         info(t("no_reply"))
+        return ""
+    if cmd == "find":
+        if not arg:
+            error(t("find_usage"))
+            return ""
+        hits = search_sessions(root, arg)
+        if not hits:
+            info(t("no_matches"))
+        else:
+            search_table(
+                [(hit.session_id, hit.role, hit.title, hit.snippet) for hit in hits[:20]]
+            )
+        return ""
+    if cmd == "pin":
+        note = arg.strip()
+        if not note:
+            for message in reversed(history):
+                if message.role == "assistant" and message.content.strip():
+                    note = message.content.strip()
+                    break
+        if not note:
+            info(t("no_reply"))
+            return ""
+        result = memory_write(root, {"note": note})
+        if result.startswith("error:"):
+            error(result)
+        else:
+            ok(t("pinned"))
         return ""
     if cmd == "commands":
         found = load_commands(root)
