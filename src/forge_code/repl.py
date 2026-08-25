@@ -17,10 +17,10 @@ from forge_code.mcp import close_mcp, describe_mcp
 from forge_code.models import Message
 from forge_code.qa.runner import run_qa
 from forge_code.scaffold import init_workspace
-from forge_code.ui import console
 from forge_code.session import (
     export_markdown,
     list_sessions,
+    list_shares,
     load_session,
     new_session,
     save_session,
@@ -29,7 +29,9 @@ from forge_code.session import (
 from forge_code.tools.memory import load_memory
 from forge_code.tools.registry import default_registry
 from forge_code.ui import (
+    THEMES,
     banner,
+    console,
     error,
     help_text,
     info,
@@ -41,7 +43,7 @@ from forge_code.ui import (
     tool_result,
     usage_line,
 )
-from forge_code.usage import Usage, budget_hit, format_budget, format_usage
+from forge_code.usage import Usage, budget_hit, format_budget, format_remaining, format_usage
 
 HISTORY_PATH_ENV = "FORGE_HISTORY"
 RUN_PREFIX = ">>"
@@ -71,7 +73,8 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
         elif kind == "tool":
             tool_line(message)
         elif kind == "tool_result":
-            tool_result(message)
+            if not cfg.quiet:
+                tool_result(message)
         elif kind == "qa":
             info(message.splitlines()[0] if message else "QA")
         elif kind == "lsp":
@@ -206,6 +209,9 @@ def _enable_readline(root: Path) -> None:
         "/alias ",
         "/budget",
         "/share",
+        "/shares",
+        "/theme ",
+        "/quiet",
         "/mcp",
         "/bash allow",
         "/bash ask",
@@ -242,9 +248,14 @@ def _slash(
         speak(help_text())
         return ""
     if cmd == "status":
+        left = format_remaining(
+            cfg.resolved_model(), totals, cfg.budget.max_usd, cfg.budget.max_tokens
+        )
         info(
             f"repo={root} session={session.id} provider={cfg.provider} "
-            f"model={cfg.resolved_model()} mode={cfg.mode} qa={'on' if cfg.qa.auto else 'off'}"
+            f"model={cfg.resolved_model()} mode={cfg.mode} qa={'on' if cfg.qa.auto else 'off'} "
+            f"theme={cfg.theme} quiet={'on' if cfg.quiet else 'off'}"
+            + (f" · {left}" if left else "")
         )
         return ""
     if cmd == "tools":
@@ -297,6 +308,11 @@ def _slash(
         return ""
     if cmd == "cost":
         info(format_usage(cfg.resolved_model(), totals))
+        left = format_remaining(
+            cfg.resolved_model(), totals, cfg.budget.max_usd, cfg.budget.max_tokens
+        )
+        if left:
+            info(left)
         return ""
     if cmd == "sessions":
         rows = [
@@ -327,6 +343,26 @@ def _slash(
         return _slash_alias(cfg, arg)
     if cmd == "budget":
         return _slash_budget(cfg, arg)
+    if cmd == "theme":
+        return _slash_theme(cfg, arg)
+    if cmd == "quiet":
+        if arg in {"on", "1", "true"}:
+            cfg.quiet = True
+        elif arg in {"off", "0", "false"}:
+            cfg.quiet = False
+        else:
+            cfg.quiet = not cfg.quiet
+        save_config(cfg)
+        ok(f"quiet → {'on' if cfg.quiet else 'off'}")
+        return ""
+    if cmd == "shares":
+        rows = list_shares(root)
+        if not rows:
+            info("no shares yet")
+        else:
+            for name, dest, size in rows[:20]:
+                info(f"{name}  {size}B  {dest}")
+        return ""
     if cmd == "undo":
         ok(undo_turn(root))
         return ""
@@ -439,13 +475,24 @@ def _slash_alias(cfg: AppConfig, arg: str) -> str:
     return ""
 
 
+def _budget_label(cfg: AppConfig) -> str:
+    return format_budget(
+        cfg.budget.max_usd,
+        cfg.budget.max_tokens,
+        cfg.budget.max_usd_turn,
+        cfg.budget.max_tokens_turn,
+    )
+
+
 def _slash_budget(cfg: AppConfig, arg: str) -> str:
     if not arg:
-        info("budget " + format_budget(cfg.budget.max_usd, cfg.budget.max_tokens))
+        info("budget " + _budget_label(cfg))
         return ""
     if arg in {"off", "0"}:
         cfg.budget.max_usd = 0.0
         cfg.budget.max_tokens = 0
+        cfg.budget.max_usd_turn = 0.0
+        cfg.budget.max_tokens_turn = 0
         save_config(cfg)
         ok("budget off")
         return ""
@@ -457,13 +504,47 @@ def _slash_budget(cfg: AppConfig, arg: str) -> str:
             error("usage: /budget tokens 50000")
             return ""
         save_config(cfg)
-        ok("budget " + format_budget(cfg.budget.max_usd, cfg.budget.max_tokens))
+        ok("budget " + _budget_label(cfg))
+        return ""
+    if parts[0] == "turn" and len(parts) == 2:
+        try:
+            cfg.budget.max_usd_turn = max(0.0, float(parts[1]))
+        except ValueError:
+            error("usage: /budget turn 0.10")
+            return ""
+        save_config(cfg)
+        ok("budget " + _budget_label(cfg))
+        return ""
+    if parts[0] in {"turn-tokens", "turn_tokens"} and len(parts) == 2:
+        try:
+            cfg.budget.max_tokens_turn = max(0, int(parts[1]))
+        except ValueError:
+            error("usage: /budget turn-tokens 8000")
+            return ""
+        save_config(cfg)
+        ok("budget " + _budget_label(cfg))
         return ""
     try:
         cfg.budget.max_usd = max(0.0, float(parts[0]))
     except ValueError:
-        error("usage: /budget  |  /budget 0.25  |  /budget tokens 50000  |  /budget off")
+        error(
+            "usage: /budget  |  /budget 0.25  |  /budget tokens 50000  |  "
+            "/budget turn 0.10  |  /budget turn-tokens 8000  |  /budget off"
+        )
         return ""
     save_config(cfg)
-    ok("budget " + format_budget(cfg.budget.max_usd, cfg.budget.max_tokens))
+    ok("budget " + _budget_label(cfg))
+    return ""
+
+
+def _slash_theme(cfg: AppConfig, arg: str) -> str:
+    if not arg:
+        info("theme " + cfg.theme + "  (" + ", ".join(THEMES) + ")")
+        return ""
+    if arg not in THEMES:
+        error("theme must be one of: " + ", ".join(THEMES))
+        return ""
+    cfg.theme = arg
+    save_config(cfg)
+    ok(f"theme → {arg}")
     return ""

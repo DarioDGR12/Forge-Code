@@ -6,13 +6,13 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.7.0  
+Apache License 2.0 · v0.8.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
 $ forge
 
-  Forge  v0.7.0
+  Forge  v0.8.0
   session  a1b2c3d4e5f6
   repo     ~/src/app
   model    ollama/qwen2.5-coder:7b
@@ -182,9 +182,11 @@ Pin extra checks in `.forge/config.json`:
 | `forge alias` | List / set / remove model aliases |
 | `forge budget` | Show the session cost/token cap |
 | `forge share [ID]` | Write a markdown share under `.forge/shares/` |
+| `forge shares` | List saved shares |
+| `forge theme [name]` | Show or set the REPL color |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/alias` `/budget` `/share` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
 
 Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
@@ -237,19 +239,31 @@ forge alias set flash gpt-4.1-nano
 #       /alias fast gpt-4.1-mini
 #       /budget 0.50
 #       /budget tokens 80000
+#       /budget turn 0.10
+#       /budget turn-tokens 8000
 #       /budget off
+#       /theme magenta
+#       /quiet
+#       /shares
 ```
 
-Caps also accept `FORGE_MAX_COST` and `FORGE_MAX_TOKENS`. When the session is over budget, Forge stops instead of calling the model again.
+Caps also accept `FORGE_MAX_COST`, `FORGE_MAX_TOKENS`, `FORGE_MAX_COST_TURN`, and `FORGE_MAX_TOKENS_TURN`. When a session or turn is over budget, Forge stops instead of calling the model again.
 
 ```json
 {
   "aliases": { "fast": "gpt-4.1-mini" },
-  "budget": { "max_usd": 0.5, "max_tokens": 80000 }
+  "theme": "magenta",
+  "quiet": false,
+  "budget": {
+    "max_usd": 0.5,
+    "max_tokens": 80000,
+    "max_usd_turn": 0.1,
+    "max_tokens_turn": 8000
+  }
 }
 ```
 
-`/share` and `forge share` write `.forge/shares/<session>.md`.
+`/share` and `forge share` write `.forge/shares/<session>.md`. `forge shares` lists them.
 
 ## Hooks
 

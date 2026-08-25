@@ -63,6 +63,10 @@ def test_alias_budget_share_cli(tmp_path, monkeypatch) -> None:
     assert main(["alias", "set", "flash", "gpt-4.1-nano"]) == 0
     assert main(["budget"]) == 0
     assert main(["share", "--repo", str(tmp_path)]) == 2
+    assert main(["shares", "--repo", str(tmp_path)]) == 0
+    assert main(["theme"]) == 0
+    assert main(["theme", "magenta"]) == 0
+    assert main(["theme", "nope"]) == 2
 
 
 def test_ask_and_worktree_cli(tmp_path, monkeypatch) -> None:

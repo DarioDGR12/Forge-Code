@@ -96,12 +96,22 @@ class Agent:
         try:
             for step in range(self.max_steps):
                 self.cancel.check()
+                model = self.cfg.resolved_model()
                 reason = budget_hit(
-                    self.cfg.resolved_model(),
+                    model,
                     self.session_usage.add(usage),
                     self.cfg.budget.max_usd,
                     self.cfg.budget.max_tokens,
                 )
+                if not reason:
+                    turn_reason = budget_hit(
+                        model,
+                        usage,
+                        self.cfg.budget.max_usd_turn,
+                        self.cfg.budget.max_tokens_turn,
+                    )
+                    if turn_reason:
+                        reason = "turn " + turn_reason
                 if reason:
                     last_text = last_text or f"Stopped: {reason}."
                     self.on_event("budget", reason)

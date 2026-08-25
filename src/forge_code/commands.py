@@ -39,6 +39,9 @@ RESERVED = {
     "alias",
     "budget",
     "share",
+    "shares",
+    "theme",
+    "quiet",
 }
 
 _NAME = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")

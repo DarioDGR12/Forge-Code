@@ -6,7 +6,7 @@ from pathlib import Path
 
 from forge_code.config import AppConfig
 from forge_code.models import Message
-from forge_code.repl import RUN_PREFIX, _slash, _slash_alias, _slash_budget
+from forge_code.repl import RUN_PREFIX, _slash, _slash_alias, _slash_budget, _slash_theme
 from forge_code.usage import Usage
 
 
@@ -54,3 +54,13 @@ def test_alias_and_budget_slash(tmp_path: Path, monkeypatch) -> None:
     assert _slash_budget(cfg, "off") == ""
     assert cfg.budget.max_usd == 0
     assert cfg.budget.max_tokens == 0
+    assert _slash_budget(cfg, "turn 0.1") == ""
+    assert cfg.budget.max_usd_turn == 0.1
+    assert _slash_budget(cfg, "turn-tokens 80") == ""
+    assert cfg.budget.max_tokens_turn == 80
+    assert _slash_budget(cfg, "off") == ""
+    assert cfg.budget.max_usd_turn == 0
+    assert _slash_theme(cfg, "magenta") == ""
+    assert cfg.theme == "magenta"
+    assert _slash_theme(cfg, "nope") == ""
+    assert cfg.theme == "magenta"

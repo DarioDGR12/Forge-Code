@@ -86,6 +86,8 @@ DEFAULT_ALIASES: dict[str, str] = {
 class BudgetConfig:
     max_usd: float = 0.0
     max_tokens: int = 0
+    max_usd_turn: float = 0.0
+    max_tokens_turn: int = 0
 
 
 @dataclass
@@ -105,6 +107,7 @@ class AppConfig:
     mcp: dict[str, MCPServerConfig] = field(default_factory=dict)
     aliases: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_ALIASES))
     budget: BudgetConfig = field(default_factory=BudgetConfig)
+    quiet: bool = False
 
     def provider_spec(self, name: str | None = None) -> dict[str, str]:
         key = name or self.provider
@@ -176,7 +179,14 @@ def load_config() -> AppConfig:
         budget=BudgetConfig(
             max_usd=float(os.environ.get("FORGE_MAX_COST") or budget_raw.get("max_usd") or 0),
             max_tokens=int(os.environ.get("FORGE_MAX_TOKENS") or budget_raw.get("max_tokens") or 0),
+            max_usd_turn=float(
+                os.environ.get("FORGE_MAX_COST_TURN") or budget_raw.get("max_usd_turn") or 0
+            ),
+            max_tokens_turn=int(
+                os.environ.get("FORGE_MAX_TOKENS_TURN") or budget_raw.get("max_tokens_turn") or 0
+            ),
         ),
+        quiet=bool(raw.get("quiet", False)),
     )
     return cfg
 
@@ -197,6 +207,7 @@ def save_config(cfg: AppConfig) -> None:
         "stream": cfg.stream,
         "aliases": cfg.aliases,
         "budget": asdict(cfg.budget),
+        "quiet": cfg.quiet,
         "mcp": {
             name: {"command": spec.command, "args": spec.args, "env": spec.env}
             for name, spec in cfg.mcp.items()

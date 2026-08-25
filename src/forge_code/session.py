@@ -129,6 +129,21 @@ def export_markdown(session: Session) -> str:
     return "\n".join(lines)
 
 
+def list_shares(root: Path) -> list[tuple[str, str, int]]:
+    folder = root / ".forge" / "shares"
+    if not folder.is_dir():
+        return []
+    rows: list[tuple[str, float, str, int]] = []
+    for path in folder.glob("*.md"):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        rows.append((path.name, stat.st_mtime, str(path), stat.st_size))
+    rows.sort(key=lambda item: item[1], reverse=True)
+    return [(name, dest, size) for name, _mtime, dest, size in rows]
+
+
 def share_session(root: Path, session: Session, dest: Path | None = None) -> Path:
     path = dest or (root / ".forge" / "shares" / f"{session.id}.md")
     path.parent.mkdir(parents=True, exist_ok=True)

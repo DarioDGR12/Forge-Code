@@ -70,13 +70,46 @@ def budget_hit(model: str, usage: Usage, max_usd: float = 0.0, max_tokens: int =
     return ""
 
 
-def format_budget(max_usd: float, max_tokens: int) -> str:
-    parts: list[str] = []
+def format_budget(
+    max_usd: float,
+    max_tokens: int,
+    turn_usd: float = 0.0,
+    turn_tokens: int = 0,
+) -> str:
+    session: list[str] = []
     if max_usd > 0:
-        parts.append(f"${max_usd:.4f}")
+        session.append(f"${max_usd:.4f}")
     if max_tokens > 0:
-        parts.append(f"{max_tokens} tokens")
-    return " · ".join(parts) if parts else "off"
+        session.append(f"{max_tokens} tokens")
+    turn: list[str] = []
+    if turn_usd > 0:
+        turn.append(f"${turn_usd:.4f}")
+    if turn_tokens > 0:
+        turn.append(f"{turn_tokens} tokens")
+    if not session and not turn:
+        return "off"
+    parts: list[str] = []
+    if session:
+        parts.append("session " + " / ".join(session))
+    if turn:
+        parts.append("turn " + " / ".join(turn))
+    return " · ".join(parts)
+
+
+def format_remaining(
+    model: str,
+    usage: "Usage",
+    max_usd: float = 0.0,
+    max_tokens: int = 0,
+) -> str:
+    bits: list[str] = []
+    if max_tokens > 0:
+        bits.append(f"{max(0, max_tokens - usage.total)} tokens left")
+    if max_usd > 0:
+        cost = estimate_cost_usd(model, usage)
+        if cost is not None:
+            bits.append(f"${max(0.0, max_usd - cost):.4f} left")
+    return " · ".join(bits)
 
 
 def format_usage(model: str, usage: Usage) -> str:

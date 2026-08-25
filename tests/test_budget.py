@@ -5,8 +5,8 @@ from pathlib import Path
 
 from forge_code.agent import Agent
 from forge_code.config import AppConfig, BudgetConfig, QAConfig
-from forge_code.models import Completion, Message
-from forge_code.usage import Usage, budget_hit, format_budget
+from forge_code.models import Completion, Message, ToolCall
+from forge_code.usage import Usage, budget_hit, format_budget, format_remaining
 
 
 def test_budget_hit_tokens_and_cost() -> None:
@@ -17,6 +17,9 @@ def test_budget_hit_tokens_and_cost() -> None:
     assert "cost" in budget_hit("gpt-4.1-mini", huge, max_usd=0.01)
     assert format_budget(0, 0) == "off"
     assert "$" in format_budget(0.5, 0)
+    assert "turn" in format_budget(0, 0, turn_tokens=8000)
+    left = format_remaining("gpt-4.1-mini", Usage(prompt_tokens=10), max_tokens=100)
+    assert "90 tokens left" in left
 
 
 def test_agent_stops_on_session_budget(tmp_path: Path) -> None:
@@ -47,3 +50,38 @@ def test_agent_stops_on_session_budget(tmp_path: Path) -> None:
     assert result.budget_hit
     assert calls["n"] == 0
     assert "budget" in result.text.lower()
+
+
+def test_agent_stops_on_turn_budget(tmp_path: Path) -> None:
+    calls = {"n": 0}
+
+    def fake_complete(_cfg, _messages, _tools):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return Completion(
+                message=Message(
+                    role="assistant",
+                    tool_calls=[
+                        ToolCall(id="1", name="todo_read", arguments={}),
+                    ],
+                ),
+                finish="tool",
+                usage=Usage(prompt_tokens=20, completion_tokens=0),
+            )
+        return Completion(
+            message=Message(role="assistant", content="done"),
+            finish="stop",
+        )
+
+    cfg = AppConfig(
+        provider="ollama",
+        model="local",
+        qa=QAConfig(auto=False),
+        budget=BudgetConfig(max_tokens_turn=15),
+    )
+    result = Agent(
+        tmp_path, cfg, complete_fn=fake_complete, attach_mcp=False
+    ).run([], "go")
+    assert result.budget_hit
+    assert calls["n"] == 1
+    assert "turn" in result.text.lower()

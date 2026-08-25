@@ -16,6 +16,17 @@ from forge_code.usage import Usage, format_usage
 
 console = Console()
 
+THEMES = (
+    "cyan",
+    "magenta",
+    "green",
+    "blue",
+    "yellow",
+    "red",
+    "white",
+    "bright_cyan",
+)
+
 
 def banner(cfg: AppConfig, repo: str, session_id: str = "") -> None:
     theme = cfg.theme or "cyan"
@@ -26,7 +37,8 @@ def banner(cfg: AppConfig, repo: str, session_id: str = "") -> None:
         f"[dim]repo[/]     {repo}\n"
         f"[dim]model[/]    {cfg.provider}/{cfg.resolved_model()}\n"
         f"[dim]mode[/]     {cfg.mode}    [dim]qa[/] {'on' if cfg.qa.auto else 'off'}    "
-        f"[dim]bash[/] {cfg.permissions.bash}\n\n"
+        f"[dim]bash[/] {cfg.permissions.bash}"
+        f"{'    [dim]quiet[/] on' if cfg.quiet else ''}\n\n"
         "[dim]Type a task, or /help. Not affiliated with OpenCode or Anthropic.[/]"
     )
     console.print(Panel(body, title=title, border_style=theme, padding=(1, 2)))
@@ -123,7 +135,8 @@ def help_text() -> str:
 - `/ask <question>` — read-only Q&A
 - `/retry` — repeat last task
 - `/last` — reprint last assistant reply
-- `/alias` `/budget` `/share`
+- `/alias` `/budget` `/share` `/shares`
+- `/theme NAME` `/quiet` `/quiet on|off`
 - `/commands` `/memory`
 - `/bash allow|ask|deny`
 - `/mcp` — configured MCP servers
@@ -139,5 +152,5 @@ def help_text() -> str:
 `forge worktree add|list|remove NAME`
 `forge qa` · `forge auth login openai` · `forge models` · `forge sessions`
 `forge mcp` · `forge commands` · `forge memory` · `forge doctor`
-`forge alias` · `forge budget` · `forge share`
+`forge alias` · `forge budget` · `forge share` · `forge shares` · `forge theme`
 """.strip()

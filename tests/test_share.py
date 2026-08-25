@@ -4,7 +4,7 @@
 from pathlib import Path
 
 from forge_code.models import Message
-from forge_code.session import new_session, save_session, share_session
+from forge_code.session import list_shares, new_session, save_session, share_session
 
 
 def test_share_writes_markdown(tmp_path: Path, monkeypatch) -> None:
@@ -19,3 +19,6 @@ def test_share_writes_markdown(tmp_path: Path, monkeypatch) -> None:
     assert session.id in text
     assert "hello" in text
     assert "tokens:" in text
+    rows = list_shares(tmp_path)
+    assert rows
+    assert rows[0][0] == path.name

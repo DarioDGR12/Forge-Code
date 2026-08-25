@@ -22,10 +22,16 @@ from forge_code.providers.factory import list_remote_models, probe_local
 from forge_code.qa.runner import run_qa
 from forge_code.repl import start_repl
 from forge_code.scaffold import init_workspace
-from forge_code.session import export_markdown, list_sessions, load_session, share_session
+from forge_code.session import (
+    export_markdown,
+    list_sessions,
+    list_shares,
+    load_session,
+    share_session,
+)
 from forge_code.tools.memory import load_memory
 from forge_code.tools.registry import default_registry
-from forge_code.ui import auth_table, console, error, mcp_table, ok, qa_panel, session_table, speak
+from forge_code.ui import THEMES, auth_table, console, error, mcp_table, ok, qa_panel, session_table, speak
 from forge_code.usage import format_budget
 from forge_code.worktree import add_worktree, list_worktrees, remove_worktree
 
@@ -91,6 +97,11 @@ def main(argv: list[str] | None = None) -> int:
     share_p.add_argument("session_id", nargs="?")
     share_p.add_argument("--out", help="markdown path")
 
+    sub.add_parser("shares", help="list markdown shares", parents=[common])
+
+    theme_p = sub.add_parser("theme", help="set or show the REPL theme")
+    theme_p.add_argument("name", nargs="?")
+
     sessions = sub.add_parser("sessions", help="list or export saved sessions", parents=[common])
     sessions.add_argument("action", nargs="?", default="list", choices=["list", "show", "export"])
     sessions.add_argument("session_id", nargs="?")
@@ -153,10 +164,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "alias":
         return _cmd_alias(cfg, args)
     if args.cmd == "budget":
-        console.print("budget " + format_budget(cfg.budget.max_usd, cfg.budget.max_tokens))
+        console.print(
+            "budget "
+            + format_budget(
+                cfg.budget.max_usd,
+                cfg.budget.max_tokens,
+                cfg.budget.max_usd_turn,
+                cfg.budget.max_tokens_turn,
+            )
+        )
         return 0
     if args.cmd == "share":
         return _cmd_share(root, args)
+    if args.cmd == "shares":
+        return _cmd_shares(root)
+    if args.cmd == "theme":
+        return _cmd_theme(cfg, args.name)
     if args.cmd == "sessions":
         return _cmd_sessions(root, args)
     error(f"unknown command {args.cmd}")
@@ -269,7 +292,16 @@ def _cmd_doctor(root: Path, cfg) -> int:
     console.print(f"provider {cfg.provider}")
     console.print(f"model    {cfg.resolved_model()}")
     console.print("aliases  " + (", ".join(f"{k}={v}" for k, v in cfg.aliases.items()) or "(none)"))
-    console.print("budget   " + format_budget(cfg.budget.max_usd, cfg.budget.max_tokens))
+    console.print(
+        "budget   "
+        + format_budget(
+            cfg.budget.max_usd,
+            cfg.budget.max_tokens,
+            cfg.budget.max_usd_turn,
+            cfg.budget.max_tokens_turn,
+        )
+    )
+    console.print(f"theme    {cfg.theme}    quiet {'on' if cfg.quiet else 'off'}")
     console.print(f"mode     {cfg.mode}")
     console.print(f"qa auto  {cfg.qa.auto}")
     console.print(f"bash     {cfg.permissions.bash}")
@@ -345,6 +377,29 @@ def _cmd_alias(cfg, args: argparse.Namespace) -> int:
     cfg.aliases[args.name] = args.target
     save_config(cfg)
     ok(f"{args.name} → {args.target}")
+    return 0
+
+
+def _cmd_shares(root: Path) -> int:
+    rows = list_shares(root)
+    if not rows:
+        console.print("no shares yet")
+        return 0
+    for name, dest, size in rows[:30]:
+        console.print(f"  {name}  {size}B  {dest}")
+    return 0
+
+
+def _cmd_theme(cfg, name: str | None) -> int:
+    if not name:
+        console.print(f"theme {cfg.theme}  ({', '.join(THEMES)})")
+        return 0
+    if name not in THEMES:
+        error("theme must be one of: " + ", ".join(THEMES))
+        return 2
+    cfg.theme = name
+    save_config(cfg)
+    ok(f"theme → {name}")
     return 0
 
 
