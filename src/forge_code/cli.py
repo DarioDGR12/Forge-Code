@@ -111,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
         if not diff:
             console.print(t("no_diff"))
             return 0
-        console.print(diff)
+        console.print(diff, markup=False, highlight=False)
         return 0
     if args.cmd == "commands":
         found = load_commands(root)

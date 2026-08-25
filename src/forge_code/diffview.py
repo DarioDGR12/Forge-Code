@@ -14,9 +14,14 @@ def visible_diff(root: Path) -> str:
     if text:
         return text
     from forge_code.tools.git import git_diff
+    from forge_code.undo import is_git
 
+    if not is_git(root):
+        return ""
     git = git_diff(root, {})
     if git.startswith("error:") or git in {"", "(clean)"}:
+        return ""
+    if git.lower().startswith("warning:") or "not a git repository" in git.lower():
         return ""
     return git
 
