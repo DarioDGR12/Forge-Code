@@ -115,18 +115,22 @@ def help_text() -> str:
 - `/model NAME` `/provider NAME`
 - `/mode build|plan`
 - `/qa` `/qa on` `/qa off`
-- `/compact` — shrink conversation
+- `/compact` `/compact hard` — shrink conversation
 - `/cost` — token usage this session
 - `/undo` — revert last agent edits
+- `/diff` — last edits or git diff
+- `/review [focus]` — plan-mode review
+- `/commands` `/memory`
 - `/bash allow|ask|deny`
 - `/mcp` — configured MCP servers
 - `/sessions` `/resume ID` `/export [path]`
 - `/init` `/clear` `/exit`
+- Custom: `.forge/commands/*.md` → `/name`
 - Ctrl+C stops the current turn
 
 **CLI**
 `forge run "fix the failing tests"`
-`forge ci --task "..."` · `forge undo`
+`forge ci --task "..."` · `forge undo` · `forge diff`
 `forge qa` · `forge auth login openai` · `forge models` · `forge sessions`
-`forge mcp` · `forge doctor`
+`forge mcp` · `forge commands` · `forge memory` · `forge doctor`
 """.strip()

@@ -9,6 +9,27 @@ from pathlib import Path
 from forge_code.undo import load_stack
 
 
+def visible_diff(root: Path) -> str:
+    text = last_diff(root)
+    if text:
+        return text
+    from forge_code.tools.git import git_diff
+
+    git = git_diff(root, {})
+    if git.startswith("error:") or git in {"", "(clean)"}:
+        return ""
+    return git
+
+
+def last_diff(root: Path) -> str:
+    stack = load_stack(root)
+    if not stack:
+        return ""
+    snap = stack[-1]
+    paths = list(dict.fromkeys([*snap.files, *snap.created]))
+    return preview_writes(root, paths)
+
+
 def preview_writes(root: Path, paths: list[str]) -> str:
     chunks: list[str] = []
     stack = load_stack(root)

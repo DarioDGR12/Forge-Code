@@ -19,3 +19,21 @@ def test_compact_keeps_system_and_recent() -> None:
 def test_estimate_chars() -> None:
     messages = [Message(role="user", content="abcd")]
     assert estimate_chars(messages) == 4
+
+
+def test_compact_hard_omits_tool_bodies() -> None:
+    messages = [Message(role="system", content="sys")]
+    for i in range(12):
+        messages.append(Message(role="user", content=f"u{i}"))
+        messages.append(
+            Message(
+                role="tool",
+                content="x" * 200,
+                name="read_file",
+                tool_call_id=str(i),
+            )
+        )
+    out = compact_messages(messages, keep_last=8, hard=True)
+    tool_msgs = [m for m in out if m.role == "tool"]
+    assert tool_msgs
+    assert all("omitted" in m.content for m in tool_msgs)

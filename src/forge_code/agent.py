@@ -257,4 +257,8 @@ def _preview_args(name: str, arguments: dict) -> str:
         return f"fetch_url {arguments.get('url', '')}"
     if name == "explore":
         return f"explore {arguments.get('question', '')}"
+    if name == "memory_write":
+        return f"memory_write {arguments.get('note', '')}"[:80]
+    if name == "memory_read":
+        return "memory_read"
     return f"{name} {arguments}"

@@ -16,6 +16,7 @@ from forge_code.tools.fs import edit_file, list_dir, read_file, write_file
 from forge_code.tools.explore import explore_repo
 from forge_code.tools.fetch import fetch_url
 from forge_code.tools.git import git_commit, git_diff, git_log, git_status
+from forge_code.tools.memory import memory_read, memory_write
 from forge_code.tools.patch import apply_patch
 from forge_code.tools.search import glob_files, grep_files
 from forge_code.tools.todo import read_todo, update_todo
@@ -284,5 +285,22 @@ def _builtin_tools() -> list[ToolSpec]:
                 "required": ["question"],
             },
             fn=explore_repo,
+        ),
+        ToolSpec(
+            name="memory_read",
+            description="Read persistent project memory (.forge/memory.md).",
+            parameters={"type": "object", "properties": {}},
+            fn=memory_read,
+        ),
+        ToolSpec(
+            name="memory_write",
+            description="Append a durable project fact to .forge/memory.md. No secrets.",
+            parameters={
+                "type": "object",
+                "properties": {"note": STR},
+                "required": ["note"],
+            },
+            fn=memory_write,
+            writes=True,
         ),
     ]

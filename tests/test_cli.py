@@ -56,6 +56,18 @@ def test_mcp_lists_none(tmp_path, monkeypatch) -> None:
     assert main(["mcp"]) == 0
 
 
+def test_init_diff_commands_memory(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    assert main(["init", "--repo", str(tmp_path)]) == 0
+    assert (tmp_path / "AGENTS.md").is_file()
+    assert main(["commands", "--repo", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "/explain" in out
+    assert main(["diff", "--repo", str(tmp_path)]) == 0
+    assert main(["memory", "--repo", str(tmp_path)]) == 0
+
+
 def test_mcp_lists_configured(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))

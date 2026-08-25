@@ -12,13 +12,18 @@ from pathlib import Path
 from forge_code import __version__
 from forge_code.agent import Agent, undo_turn
 from forge_code.auth import login, logout, status_rows
+from forge_code.commands import load_commands
 from forge_code.config import load_config, save_config
+from forge_code.diffview import visible_diff
+from forge_code.i18n import t
 from forge_code.mcp import close_mcp, describe_mcp
 from forge_code.models import Message
 from forge_code.providers.factory import list_remote_models, probe_local
 from forge_code.qa.runner import run_qa
-from forge_code.repl import AGENTS_TEMPLATE, start_repl
+from forge_code.repl import start_repl
+from forge_code.scaffold import init_workspace
 from forge_code.session import export_markdown, list_sessions, load_session
+from forge_code.tools.memory import load_memory
 from forge_code.tools.registry import default_registry
 from forge_code.ui import auth_table, console, error, mcp_table, ok, qa_panel, session_table, speak
 
@@ -57,10 +62,13 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("models", help="list local and remote models")
     sub.add_parser("qa", help="run the integrated QA suite", parents=[common])
-    sub.add_parser("init", help="write AGENTS.md", parents=[common])
+    sub.add_parser("init", help="write AGENTS.md, skills, commands, and ignore", parents=[common])
     sub.add_parser("doctor", help="check providers, local runtimes, and QA", parents=[common])
     sub.add_parser("tools", help="list agent tools")
     sub.add_parser("mcp", help="list configured MCP servers", parents=[common])
+    sub.add_parser("diff", help="show last agent edits or git diff", parents=[common])
+    sub.add_parser("commands", help="list custom slash commands", parents=[common])
+    sub.add_parser("memory", help="print .forge/memory.md", parents=[common])
 
     sessions = sub.add_parser("sessions", help="list or export saved sessions", parents=[common])
     sessions.add_argument("action", nargs="?", default="list", choices=["list", "show", "export"])
@@ -89,13 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         qa_panel(report)
         return 0 if report.ok else 1
     if args.cmd == "init":
-        path = root / "AGENTS.md"
-        if path.exists():
-            console.print("AGENTS.md already exists")
-            return 0
-        path.write_text(AGENTS_TEMPLATE, encoding="utf-8")
-        console.print("wrote AGENTS.md")
-        return 0
+        return _cmd_init(root)
     if args.cmd == "doctor":
         return _cmd_doctor(root, cfg)
     if args.cmd == "tools":
@@ -104,6 +106,25 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "mcp":
         return _cmd_mcp(cfg)
+    if args.cmd == "diff":
+        diff = visible_diff(root)
+        if not diff:
+            console.print(t("no_diff"))
+            return 0
+        console.print(diff)
+        return 0
+    if args.cmd == "commands":
+        found = load_commands(root)
+        if not found:
+            console.print(t("no_commands"))
+            return 0
+        for item in found.values():
+            console.print(f"  /{item.name}  {item.title}")
+        return 0
+    if args.cmd == "memory":
+        text = load_memory(root)
+        console.print(text or t("empty_memory"))
+        return 0
     if args.cmd == "sessions":
         return _cmd_sessions(root, args)
     error(f"unknown command {args.cmd}")
@@ -225,10 +246,20 @@ def _cmd_doctor(root: Path, cfg) -> int:
         mcp_table(rows)
     else:
         console.print("mcp      (none)")
+    cmds = load_commands(root)
+    console.print("commands " + (", ".join(f"/{n}" for n in cmds) or "(none)"))
+    mem = root / ".forge" / "memory.md"
+    console.print(f"memory   {'yes' if mem.is_file() else '(empty)'}")
     report = run_qa(root, timeout=cfg.qa.timeout, extra=cfg.qa.extra)
     qa_panel(report)
     save_config(cfg)
     return 0 if report.ok else 1
+
+
+def _cmd_init(root: Path) -> int:
+    for rel, state in init_workspace(root):
+        console.print(f"{state:6} {rel}")
+    return 0
 
 
 def _cmd_mcp(cfg) -> int:

@@ -15,16 +15,27 @@ def estimate_chars(messages: list[Message]) -> int:
     return total
 
 
-def compact_messages(messages: list[Message], keep_last: int = 8) -> list[Message]:
+def compact_messages(
+    messages: list[Message], keep_last: int = 8, hard: bool = False
+) -> list[Message]:
     """Drop old tool transcripts; keep system + a short digest + recent turns."""
+    if hard:
+        keep_last = min(keep_last, 3)
     if len(messages) <= keep_last + 1:
+        if hard:
+            return [_shrink(item) if item.role != "system" else item for item in messages]
         return list(messages)
     system = messages[0] if messages and messages[0].role == "system" else None
     body = messages[1:] if system else messages
     if len(body) <= keep_last:
+        if hard:
+            kept = [_shrink(item) for item in body]
+            return ([system] if system else []) + kept
         return list(messages)
     dropped = body[:-keep_last]
     kept = body[-keep_last:]
+    if hard:
+        kept = [_shrink(item) for item in kept]
     digest = _digest(dropped)
     out: list[Message] = []
     if system:
@@ -40,6 +51,23 @@ def compact_messages(messages: list[Message], keep_last: int = 8) -> list[Messag
     )
     out.extend(kept)
     return out
+
+
+def _shrink(message: Message) -> Message:
+    if message.role == "tool":
+        return Message(
+            role="tool",
+            content="(omitted after /compact hard)",
+            tool_call_id=message.tool_call_id,
+            name=message.name,
+        )
+    if message.role == "assistant":
+        return Message(
+            role="assistant",
+            content=message.content[:400],
+            tool_calls=message.tool_calls,
+        )
+    return message
 
 
 def _digest(messages: list[Message]) -> str:

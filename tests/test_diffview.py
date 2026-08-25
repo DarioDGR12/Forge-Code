@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from forge_code.diffview import preview_writes
+from forge_code.diffview import last_diff, preview_writes, visible_diff
 from forge_code.undo import checkpoint, remember_write
 
 
@@ -18,3 +18,10 @@ def test_preview_writes_unified_diff(tmp_path: Path) -> None:
     assert "b/note.txt" in diff
     assert "-hello" in diff
     assert "+hola" in diff
+    assert "hola" in last_diff(tmp_path)
+    assert "hola" in visible_diff(tmp_path)
+
+
+def test_last_diff_empty(tmp_path: Path) -> None:
+    assert last_diff(tmp_path) == ""
+    assert visible_diff(tmp_path) == ""

@@ -7,13 +7,16 @@ import os
 from pathlib import Path
 
 from forge_code.agent import Agent, undo_turn
+from forge_code.commands import expand_command, load_commands
 from forge_code.compact import compact_messages
 from forge_code.config import AppConfig, save_config
+from forge_code.diffview import visible_diff
 from forge_code.i18n import t
 from forge_code.interrupt import CancelFlag
 from forge_code.mcp import close_mcp, describe_mcp
 from forge_code.models import Message
 from forge_code.qa.runner import run_qa
+from forge_code.scaffold import init_workspace
 from forge_code.ui import console
 from forge_code.session import (
     export_markdown,
@@ -22,6 +25,7 @@ from forge_code.session import (
     new_session,
     save_session,
 )
+from forge_code.tools.memory import load_memory
 from forge_code.tools.registry import default_registry
 from forge_code.ui import (
     banner,
@@ -38,23 +42,12 @@ from forge_code.ui import (
 )
 from forge_code.usage import Usage, format_usage
 
-AGENTS_TEMPLATE = """# Agent notes
-
-This file is read by Forge at the start of every session.
-
-## Commands
-
-- Tests:
-- Lint:
-- Dev server:
-
-## Rules
-
-- Keep changes small.
-- Do not commit secrets.
-"""
-
 HISTORY_PATH_ENV = "FORGE_HISTORY"
+RUN_PREFIX = ">>"
+REVIEW_PROMPT = (
+    "Review the working tree. Use git_status and git_diff. "
+    "List bugs, risks, and missing tests. Do not edit."
+)
 
 
 def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int:
@@ -109,7 +102,10 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
                 save_session(root, session)
                 close_mcp()
                 return 0
-            continue
+            if code.startswith(RUN_PREFIX):
+                raw = code[len(RUN_PREFIX) :]
+            else:
+                continue
         cancel.reset()
         try:
             result = agent.run(history, raw)
@@ -188,12 +184,18 @@ def _enable_readline(root: Path) -> None:
         "/init",
         "/clear",
         "/undo",
+        "/diff",
+        "/review",
+        "/commands",
+        "/memory",
         "/mcp",
         "/bash allow",
         "/bash ask",
         "/bash deny",
         "/exit",
     ]
+
+    commands.extend(f"/{name}" for name in load_commands(root))
 
     def completer(text: str, state: int) -> str | None:
         opts = [item for item in commands if item.startswith(text)]
@@ -203,7 +205,6 @@ def _enable_readline(root: Path) -> None:
 
     readline.set_completer(completer)
     readline.parse_and_bind("tab: complete")
-    del root
 
 
 def _slash(
@@ -260,7 +261,7 @@ def _slash(
         qa_panel(run_qa(root, timeout=cfg.qa.timeout, extra=cfg.qa.extra))
         return ""
     if cmd == "compact":
-        compacted = compact_messages(history)
+        compacted = compact_messages(history, hard=arg == "hard")
         history.clear()
         history.extend(compacted)
         session.messages = history
@@ -293,6 +294,35 @@ def _slash(
     if cmd == "undo":
         ok(undo_turn(root))
         return ""
+    if cmd == "diff":
+        diff = visible_diff(root)
+        if not diff:
+            info(t("no_diff"))
+        else:
+            speak(f"```diff\n{diff}\n```")
+        return ""
+    if cmd == "review":
+        cfg.mode = "plan"
+        prompt = REVIEW_PROMPT
+        if arg:
+            prompt += f"\nFocus: {arg}"
+        ok("mode → plan (review). /mode build to edit")
+        return RUN_PREFIX + prompt
+    if cmd == "commands":
+        found = load_commands(root)
+        if not found:
+            info(t("no_commands"))
+        else:
+            for item in found.values():
+                info(f"/{item.name}  {item.title}")
+        return ""
+    if cmd == "memory":
+        text = load_memory(root)
+        if not text:
+            info(t("empty_memory"))
+        else:
+            speak(text)
+        return ""
     if cmd == "mcp":
         rows = describe_mcp(cfg.mcp)
         if not rows:
@@ -311,12 +341,14 @@ def _slash(
         ok("conversation cleared")
         return ""
     if cmd == "init":
-        path = root / "AGENTS.md"
-        if path.exists():
-            info("AGENTS.md already exists")
-        else:
-            path.write_text(AGENTS_TEMPLATE, encoding="utf-8")
-            ok("wrote AGENTS.md")
+        for rel, state in init_workspace(root):
+            if state == "wrote":
+                ok(f"wrote {rel}")
+            else:
+                info(f"{rel} already exists")
         return ""
+    custom = load_commands(root).get(cmd)
+    if custom:
+        return RUN_PREFIX + expand_command(custom, arg)
     error(f"unknown command /{cmd}. try /help")
     return ""

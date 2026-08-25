@@ -13,6 +13,9 @@ STRINGS = {
         "nothing_undo": "nothing to undo",
         "allow_bash": "allow bash `{cmd}`? [y/N] ",
         "denied_bash": "user denied bash",
+        "no_diff": "no edits to diff",
+        "no_commands": "no custom commands in .forge/commands",
+        "empty_memory": "memory is empty",
     },
     "es": {
         "forging": "forjando…",
@@ -21,6 +24,9 @@ STRINGS = {
         "nothing_undo": "nada que deshacer",
         "allow_bash": "¿permitir bash `{cmd}`? [s/N] ",
         "denied_bash": "el usuario rechazó bash",
+        "no_diff": "nada que comparar",
+        "no_commands": "no hay comandos en .forge/commands",
+        "empty_memory": "la memoria está vacía",
     },
 }
 

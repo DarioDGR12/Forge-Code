@@ -67,7 +67,7 @@ class MCPClient:
             stderr=subprocess.PIPE,
             env=env,
         )
-        self.request("initialize", {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "forge", "version": "0.4.0"}})
+        self.request("initialize", {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "forge", "version": "0.5.0"}})
         self.notify("notifications/initialized", {})
         listed = self.request("tools/list", {})
         self._tools = list((listed or {}).get("tools") or [])

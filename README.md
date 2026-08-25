@@ -6,13 +6,13 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.4.0  
+Apache License 2.0 · v0.5.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
 $ forge
 
-  Forge  v0.4.0
+  Forge  v0.5.0
   session  a1b2c3d4e5f6
   repo     ~/src/app
   model    ollama/qwen2.5-coder:7b
@@ -170,24 +170,41 @@ Pin extra checks in `.forge/config.json`:
 | `forge sessions export ID` | Write a markdown transcript |
 | `forge tools` | List agent tools |
 | `forge mcp` | List configured MCP servers |
-| `forge init` | Write `AGENTS.md` |
+| `forge init` | Scaffold `AGENTS.md`, `.forgeignore`, skills, commands |
 | `forge doctor` | Health check |
 | `forge undo` | Revert the last agent edits |
+| `forge diff` | Last agent edits or current git diff |
+| `forge commands` | List `.forge/commands/*.md` slash commands |
+| `forge memory` | Print `.forge/memory.md` |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/cost` `/undo` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
 
 Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
 ## Tools
 
-`read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore`
+`read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore` `memory_read` `memory_write`
 
 - **explore** — read-only nested search (plan-mode tools only; cannot recurse)
 - **fetch_url** — public documentation, 80 KB cap, HTML stripped
 - **git_commit** — `git add -- <paths>` then `git commit -m`
+- **memory_*** — append-only facts in `.forge/memory.md` (no secrets)
 
-After writes, the REPL shows a unified diff of the turn.
+After writes, the REPL shows a unified diff of the turn. `/diff` and `forge diff` replay it (or fall back to `git diff`).
+
+## Custom commands
+
+Markdown files in `.forge/commands/*.md` become slash commands. `$ARGS` / `{{args}}` is the rest of the line. Built-in names (`help`, `diff`, `review`, …) cannot be overridden.
+
+```bash
+forge init
+# writes .forge/commands/explain.md
+# then, in the REPL:
+/explain the auth package
+/review
+/compact hard
+```
 
 ## Hooks
 
@@ -262,6 +279,8 @@ Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can 
 | `.forge/config.json` | Repo overlay (provider, QA, permissions, MCP) |
 | `.forge/hooks/` | `pre_edit` / `post_edit` / `post_turn` scripts |
 | `.forge/skills/*.md` | Extra system-prompt skills |
+| `.forge/commands/*.md` | Custom slash commands |
+| `.forge/memory.md` | Persistent notes (`memory_write`) |
 | `~/.config/forge-code/` | User config + credentials |
 
 ## Quick demo (no API)
