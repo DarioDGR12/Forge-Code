@@ -6,13 +6,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from rich.status import Status
-
-from forge_code.agent import Agent
+from forge_code.agent import Agent, undo_turn
 from forge_code.compact import compact_messages
 from forge_code.config import AppConfig, save_config
+from forge_code.interrupt import CancelFlag
 from forge_code.models import Message
 from forge_code.qa.runner import run_qa
+from forge_code.ui import console
 from forge_code.session import (
     export_markdown,
     list_sessions,
@@ -68,16 +68,25 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
     totals = session.usage or Usage()
 
     def on_event(kind: str, message: str) -> None:
-        if kind == "tool":
+        if kind == "stream":
+            console.print(message, end="", highlight=False)
+        elif kind == "stream_end":
+            console.print()
+        elif kind == "tool":
             tool_line(message)
         elif kind == "tool_result":
             tool_result(message)
         elif kind == "qa":
             info(message.splitlines()[0] if message else "QA")
+        elif kind == "lsp":
+            info(message.splitlines()[0] if message else "LSP")
         elif kind == "compact":
             info(message)
+        elif kind == "assistant":
+            speak(message)
 
-    agent = Agent(root, cfg, on_event=on_event)
+    cancel = CancelFlag()
+    agent = Agent(root, cfg, on_event=on_event, cancel=cancel)
     while True:
         try:
             raw = _read_input()
@@ -93,9 +102,13 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
                 save_session(root, session)
                 return 0
             continue
+        cancel.reset()
         try:
-            with Status("[cyan]forging…[/]", spinner="dots"):
-                result = agent.run(history, raw)
+            result = agent.run(history, raw)
+        except KeyboardInterrupt:
+            cancel.cancel()
+            info("interrupted — /undo reverts the last edits")
+            continue
         except RuntimeError as exc:
             error(str(exc))
             continue
@@ -106,8 +119,8 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
         session.provider = cfg.provider
         session.model = cfg.resolved_model()
         save_session(root, session)
-        if result.text:
-            speak(result.text)
+        if result.interrupted:
+            info("interrupted — /undo reverts the last edits")
         if result.qa is not None:
             qa_panel(result.qa)
         usage_line(cfg.resolved_model(), result.usage)
@@ -166,6 +179,10 @@ def _enable_readline(root: Path) -> None:
         "/export",
         "/init",
         "/clear",
+        "/undo",
+        "/bash allow",
+        "/bash ask",
+        "/bash deny",
         "/exit",
     ]
 
@@ -263,6 +280,14 @@ def _slash(
         path = Path(arg) if arg else Path(f"forge-session-{session.id}.md")
         path.write_text(export_markdown(session), encoding="utf-8")
         ok(f"wrote {path}")
+        return ""
+    if cmd == "undo":
+        ok(undo_turn(root))
+        return ""
+    if cmd == "bash" and arg in {"allow", "ask", "deny"}:
+        cfg.permissions.bash = arg
+        save_config(cfg)
+        ok(f"bash → {arg}")
         return ""
     if cmd == "clear":
         history.clear()

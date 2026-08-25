@@ -6,13 +6,13 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.2.0  
+Apache License 2.0 · v0.3.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
 $ forge
 
-  Forge  v0.2.0
+  Forge  v0.3.0
   session  a1b2c3d4e5f6
   repo     ~/src/app
   model    ollama/qwen2.5-coder:7b
@@ -136,7 +136,10 @@ Pin extra checks in `.forge/config.json`:
 - `.forgeignore` + `.gitignore` hide vendor and secret trees from search
 - Destructive bash (`rm -rf /`, `mkfs`, `curl | sh`, …) is rejected
 - **plan** mode is read-only
-- Set `"permissions": { "bash": "deny" }` to disable the shell tool
+- `/bash ask` prompts before each shell command (`FORGE_YES=1` auto-approves in CI)
+- `/undo` and `forge undo` restore the last turn (git snapshot when possible)
+- Ctrl+C cancels the current model/tool loop
+- After edits, Forge runs language diagnostics (pyright/ruff, tsc, go vet) when those tools exist
 
 ## Commands
 
@@ -154,14 +157,45 @@ Pin extra checks in `.forge/config.json`:
 | `forge tools` | List agent tools |
 | `forge init` | Write `AGENTS.md` |
 | `forge doctor` | Health check |
+| `forge undo` | Revert the last agent edits |
+| `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/cost` `/sessions` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/cost` `/undo` `/bash` `/sessions` `/export` `/clear` `/exit`
 
 Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
 ## Tools
 
 `read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `bash` `git_status` `git_diff` `git_log` `todo_write` `todo_read`
+
+## MCP
+
+Add stdio MCP servers in `.forge/config.json`. Each server’s tools show up as `mcp_<name>_<tool>`.
+
+```json
+{
+  "mcp": {
+    "files": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    }
+  }
+}
+```
+
+## GitHub Actions
+
+```yaml
+- uses: actions/checkout@v4
+- uses: ./.github/actions/forge
+  with:
+    task: "fix the failing tests"
+    provider: openai
+  env:
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
+
+Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can drive the example workflow.
 
 ## Project files
 

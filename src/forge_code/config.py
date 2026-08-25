@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from forge_code.mcp import MCPServerConfig
 from forge_code.paths import config_dir
 from forge_code.permissions import PermissionConfig
 
@@ -87,6 +88,8 @@ class AppConfig:
     max_steps: int = 24
     compact_after_chars: int = 48_000
     theme: str = "cyan"
+    stream: bool = True
+    mcp: dict[str, MCPServerConfig] = field(default_factory=dict)
 
     def provider_spec(self, name: str | None = None) -> dict[str, str]:
         key = name or self.provider
@@ -148,6 +151,8 @@ def load_config() -> AppConfig:
         max_steps=int(raw.get("max_steps") or 24),
         compact_after_chars=int(raw.get("compact_after_chars") or 48_000),
         theme=str(raw.get("theme") or "cyan"),
+        stream=bool(raw.get("stream", True)),
+        mcp=_parse_mcp(raw.get("mcp") or {}),
     )
     return cfg
 
@@ -165,6 +170,11 @@ def save_config(cfg: AppConfig) -> None:
         "max_steps": cfg.max_steps,
         "compact_after_chars": cfg.compact_after_chars,
         "theme": cfg.theme,
+        "stream": cfg.stream,
+        "mcp": {
+            name: {"command": spec.command, "args": spec.args, "env": spec.env}
+            for name, spec in cfg.mcp.items()
+        },
     }
     path = config_path()
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -198,6 +208,21 @@ def resolve_api_key(cfg: AppConfig, provider: str | None = None) -> str:
     if spec.get("local") == "true":
         return "local"
     return ""
+
+
+def _parse_mcp(raw: Any) -> dict[str, MCPServerConfig]:
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, MCPServerConfig] = {}
+    for name, spec in raw.items():
+        if not isinstance(spec, dict) or not spec.get("command"):
+            continue
+        out[str(name)] = MCPServerConfig(
+            command=str(spec["command"]),
+            args=list(spec.get("args") or []),
+            env={str(k): str(v) for k, v in (spec.get("env") or {}).items()},
+        )
+    return out
 
 
 def _repo_overlay() -> dict[str, Any]:

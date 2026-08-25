@@ -1,0 +1,30 @@
+name: Forge CI
+description: Run the Forge coding agent on a repository (BYOK via secrets)
+inputs:
+  task:
+    description: What the agent should do
+    required: true
+  provider:
+    description: openai, anthropic, openrouter, groq, custom
+    default: openai
+  model:
+    description: Model id
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install Forge
+      shell: bash
+      run: pip install -e .
+    - name: Run
+      shell: bash
+      env:
+        FORGE_PROVIDER: ${{ inputs.provider }}
+        FORGE_MODEL: ${{ inputs.model }}
+        FORGE_YES: "1"
+        FORGE_TASK: ${{ inputs.task }}
+      run: forge ci --task "$FORGE_TASK"

@@ -29,3 +29,15 @@ def test_bash_deny_policy(tmp_path: Path) -> None:
     tools = default_registry(gate)
     result = tools.execute(tmp_path, "bash", {"command": "echo hi"}, mode="build")
     assert "disabled" in result
+
+
+def test_bash_ask_denied_and_allowed(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("FORGE_YES", raising=False)
+    gate = PermissionGate(tmp_path, PermissionConfig(bash="ask"))
+    denied = default_registry(gate, ask=lambda *_: False)
+    assert "denied" in denied.execute(tmp_path, "bash", {"command": "echo hi"})
+
+    allowed = default_registry(gate, ask=lambda *_: True)
+    result = allowed.execute(tmp_path, "bash", {"command": "echo hi"})
+    assert "exit 0" in result
+    assert "hi" in result

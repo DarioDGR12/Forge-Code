@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -48,6 +49,7 @@ class PermissionConfig:
 class Decision:
     allowed: bool
     reason: str = ""
+    ask: bool = False
 
 
 class PermissionGate:
@@ -79,4 +81,8 @@ class PermissionGate:
         for cre in DANGEROUS_BASH:
             if cre.search(text):
                 return Decision(False, "command matches a destructive pattern")
+        if self.cfg.bash == "ask":
+            if os.environ.get("FORGE_YES") == "1":
+                return Decision(True)
+            return Decision(False, "needs confirmation", ask=True)
         return Decision(True)

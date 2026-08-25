@@ -8,16 +8,23 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from collections.abc import Callable
+
 from forge_code.config import AppConfig, resolve_api_key
+from forge_code.interrupt import CancelFlag
 from forge_code.models import Completion, Message
 from forge_code.providers import anthropic, openai_compat
 from forge_code.retry import with_retry
+
+DeltaFn = Callable[[str], None]
 
 
 def complete(
     cfg: AppConfig,
     messages: list[Message],
     tools: list[dict[str, Any]],
+    on_delta: DeltaFn | None = None,
+    cancel: CancelFlag | None = None,
 ) -> Completion:
     spec = cfg.provider_spec()
     kind = spec.get("kind") or "openai"
@@ -46,6 +53,9 @@ def complete(
             model=model,
             messages=messages,
             tools=tools,
+            stream=bool(cfg.stream and on_delta is not None),
+            on_delta=on_delta,
+            cancel=cancel,
         )
 
     return with_retry(_call, attempts=cfg.retry.attempts, backoff=cfg.retry.backoff)

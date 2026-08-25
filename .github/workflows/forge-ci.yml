@@ -1,0 +1,33 @@
+# Example: run Forge from a workflow_dispatch or a "/forge …" issue comment.
+# Copy and point secrets at your provider. This workflow is documentation;
+# it does not run on every push.
+
+name: forge-ci
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Task for Forge
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+jobs:
+  forge:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.comment.body, '/forge ')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/forge
+        with:
+          task: ${{ github.event.inputs.task || github.event.comment.body }}
+          provider: openai
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

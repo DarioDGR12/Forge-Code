@@ -7,14 +7,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from forge_code.ask import confirm_bash
 from forge_code.compact import compact_messages, estimate_chars
 from forge_code.config import AppConfig
+from forge_code.diagnostics import format_diagnostics, run_diagnostics
+from forge_code.interrupt import CancelFlag, CancelledError
+from forge_code.mcp import load_mcp_tools
 from forge_code.models import Completion, Message
 from forge_code.permissions import PermissionGate
 from forge_code.prompts import system_prompt
 from forge_code.providers.factory import complete as default_complete
 from forge_code.qa.runner import QAReport, run_qa
 from forge_code.tools.registry import ToolRegistry, default_registry
+from forge_code.undo import checkpoint, remember_write, undo_last
 from forge_code.usage import Usage
 
 OnEvent = Callable[[str, str], None]
@@ -29,6 +34,7 @@ class TurnResult:
     steps: int = 0
     usage: Usage = field(default_factory=Usage)
     compacted: bool = False
+    interrupted: bool = False
 
 
 class Agent:
@@ -40,16 +46,23 @@ class Agent:
         max_steps: int | None = None,
         on_event: OnEvent | None = None,
         complete_fn: CompleteFn | None = None,
+        cancel: CancelFlag | None = None,
+        ask=None,
     ):
         self.root = root
         self.cfg = cfg
         gate = PermissionGate(root, cfg.permissions)
-        self.registry = registry or default_registry(gate)
+        self.registry = registry or default_registry(gate, ask=ask or confirm_bash)
         if self.registry.gate is None:
             self.registry.gate = gate
+        if ask is not None:
+            self.registry.ask = ask
+        for spec in load_mcp_tools(cfg.mcp):
+            self.registry.add(spec)
         self.max_steps = max_steps or cfg.max_steps
         self.on_event = on_event or (lambda _kind, _msg: None)
         self.complete_fn = complete_fn or default_complete
+        self.cancel = cancel or CancelFlag()
 
     def run(self, history: list[Message], user_text: str) -> TurnResult:
         messages = list(history)
@@ -70,55 +83,97 @@ class Agent:
         usage = Usage()
         tools = self.registry.schemas(self.cfg.mode)
         step = 0
+        snapped = False
 
-        for step in range(self.max_steps):
-            completion = self.complete_fn(self.cfg, messages, tools)
-            usage = usage.add(completion.usage)
-            assistant = completion.message
-            messages.append(assistant)
-            if assistant.content:
-                last_text = assistant.content
-                self.on_event("assistant", assistant.content)
-            if not assistant.tool_calls:
-                break
-            for call in assistant.tool_calls:
-                preview = _preview_args(call.name, call.arguments)
-                self.on_event("tool", preview)
-                result = self.registry.execute(
-                    self.root, call.name, call.arguments, mode=self.cfg.mode
-                )
-                if call.name in {"write_file", "edit_file", "apply_patch"} and not result.startswith(
-                    "error:"
-                ):
-                    writes.append(str(call.arguments.get("path") or call.name))
-                messages.append(
-                    Message(
-                        role="tool",
-                        content=result,
-                        tool_call_id=call.id,
-                        name=call.name,
+        try:
+            for step in range(self.max_steps):
+                self.cancel.check()
+                streamed: list[str] = []
+
+                def on_delta(piece: str, bucket: list[str] = streamed) -> None:
+                    bucket.append(piece)
+                    self.on_event("stream", piece)
+
+                completion = self._complete(messages, tools, on_delta)
+                usage = usage.add(completion.usage)
+                assistant = completion.message
+                messages.append(assistant)
+                if assistant.content:
+                    last_text = assistant.content
+                    if not streamed:
+                        self.on_event("assistant", assistant.content)
+                    else:
+                        self.on_event("stream_end", "")
+                if not assistant.tool_calls:
+                    break
+                for call in assistant.tool_calls:
+                    self.cancel.check()
+                    preview = _preview_args(call.name, call.arguments)
+                    self.on_event("tool", preview)
+                    if call.name in {"write_file", "edit_file", "apply_patch"}:
+                        if not snapped:
+                            checkpoint(self.root, note=user_text[:60])
+                            snapped = True
+                        self._remember(call.name, call.arguments)
+                    result = self.registry.execute(
+                        self.root, call.name, call.arguments, mode=self.cfg.mode
                     )
-                )
-                self.on_event("tool_result", result[:800])
-            if writes and self.cfg.qa.auto:
-                qa = run_qa(self.root, timeout=self.cfg.qa.timeout, extra=self.cfg.qa.extra)
-                self.on_event("qa", qa.summary())
-                if not qa.ok:
+                    if call.name in {"write_file", "edit_file", "apply_patch"} and not result.startswith(
+                        "error:"
+                    ):
+                        writes.append(str(call.arguments.get("path") or call.name))
                     messages.append(
                         Message(
-                            role="user",
-                            content=(
-                                "Integrated QA failed after your edits. Fix the failures.\n"
-                                + qa.summary()
-                            ),
+                            role="tool",
+                            content=result,
+                            tool_call_id=call.id,
+                            name=call.name,
                         )
                     )
-                    writes = []
-                    continue
-            if step == self.max_steps - 1:
+                    self.on_event("tool_result", result[:800])
+                if writes:
+                    diags = run_diagnostics(self.root, writes)
+                    if diags:
+                        report = format_diagnostics(diags)
+                        self.on_event("lsp", report)
+                        messages.append(
+                            Message(
+                                role="user",
+                                content="Language diagnostics after your edits. Fix them if they are real.\n"
+                                + report,
+                            )
+                        )
+                if writes and self.cfg.qa.auto:
+                    qa = run_qa(self.root, timeout=self.cfg.qa.timeout, extra=self.cfg.qa.extra)
+                    self.on_event("qa", qa.summary())
+                    if not qa.ok:
+                        messages.append(
+                            Message(
+                                role="user",
+                                content=(
+                                    "Integrated QA failed after your edits. Fix the failures.\n"
+                                    + qa.summary()
+                                ),
+                            )
+                        )
+                        writes = []
+                        continue
+                if step == self.max_steps - 1:
+                    last_text = last_text or "Stopped: max tool steps reached."
+            else:
                 last_text = last_text or "Stopped: max tool steps reached."
-        else:
-            last_text = last_text or "Stopped: max tool steps reached."
+        except CancelledError:
+            history.clear()
+            history.extend(messages)
+            return TurnResult(
+                text=last_text or "Interrupted.",
+                qa=qa,
+                writes=[item for item in writes if item],
+                steps=step + 1,
+                usage=usage,
+                compacted=compacted,
+                interrupted=True,
+            )
 
         history.clear()
         history.extend(messages)
@@ -130,6 +185,31 @@ class Agent:
             usage=usage,
             compacted=compacted,
         )
+
+    def _complete(self, messages: list[Message], tools: list, on_delta) -> Completion:
+        try:
+            return self.complete_fn(
+                self.cfg,
+                messages,
+                tools,
+                on_delta=on_delta,
+                cancel=self.cancel,
+            )
+        except TypeError:
+            return self.complete_fn(self.cfg, messages, tools)
+
+    def _remember(self, name: str, arguments: dict) -> None:
+        rel = str(arguments.get("path") or "")
+        if not rel or name == "apply_patch":
+            return
+        path = self.root / rel
+        existed = path.is_file()
+        previous = path.read_text(encoding="utf-8") if existed else None
+        remember_write(self.root, rel, existed, previous)
+
+
+def undo_turn(root: Path) -> str:
+    return undo_last(root)
 
 
 def _preview_args(name: str, arguments: dict) -> str:

@@ -107,11 +107,15 @@ def help_text() -> str:
 - `/qa` `/qa on` `/qa off`
 - `/compact` — shrink conversation
 - `/cost` — token usage this session
+- `/undo` — revert last agent edits
+- `/bash allow|ask|deny`
 - `/sessions` `/resume ID` `/export [path]`
 - `/init` `/clear` `/exit`
+- Ctrl+C stops the current turn
 
 **CLI**
 `forge run "fix the failing tests"`
+`forge ci --task "..."` · `forge undo`
 `forge qa` · `forge auth login openai` · `forge models` · `forge sessions`
 `forge doctor`
 """.strip()

@@ -5,14 +5,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 from forge_code import __version__
-from forge_code.agent import Agent
+from forge_code.agent import Agent, undo_turn
 from forge_code.auth import login, logout, status_rows
 from forge_code.config import load_config, save_config
 from forge_code.models import Message
+from forge_code.ui import ok
 from forge_code.providers.factory import list_remote_models, probe_local
 from forge_code.qa.runner import run_qa
 from forge_code.repl import AGENTS_TEMPLATE, start_repl
@@ -36,6 +38,12 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run", help="one-shot non-interactive task", parents=[common])
     run.add_argument("task", help="what to do")
     run.add_argument("--json", action="store_true")
+
+    ci = sub.add_parser("ci", help="non-interactive run for GitHub Actions", parents=[common])
+    ci.add_argument("--task", help="task text (or $FORGE_TASK / event)")
+    ci.add_argument("--json", action="store_true")
+
+    sub.add_parser("undo", help="revert the last agent edits", parents=[common])
 
     auth = sub.add_parser("auth", help="bring your own keys")
     auth_sub = auth.add_subparsers(dest="auth_cmd", required=True)
@@ -66,6 +74,11 @@ def main(argv: list[str] | None = None) -> int:
         return start_repl(root, cfg, session_id=args.resume)
     if args.cmd == "run":
         return _cmd_run(root, cfg, args.task, args.json)
+    if args.cmd == "ci":
+        return _cmd_ci(root, cfg, args)
+    if args.cmd == "undo":
+        ok(undo_turn(root))
+        return 0
     if args.cmd == "auth":
         return _cmd_auth(args)
     if args.cmd == "models":
@@ -119,7 +132,41 @@ def _cmd_run(root: Path, cfg, task: str, as_json: bool) -> int:
             speak(result.text)
         if result.qa is not None:
             qa_panel(result.qa)
+    if result.interrupted:
+        return 130
     return 0 if (result.qa is None or result.qa.ok) else 1
+
+
+def _cmd_ci(root: Path, cfg, args: argparse.Namespace) -> int:
+    os.environ.setdefault("FORGE_YES", "1")
+    task = args.task or os.environ.get("FORGE_TASK") or _task_from_github()
+    if task.lower().startswith("/forge "):
+        task = task[7:].strip()
+    if not task:
+        error("ci needs --task or FORGE_TASK")
+        return 2
+    code = _cmd_run(root, cfg, task, args.json)
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        Path(summary).write_text(
+            f"## Forge CI\n\nTask: `{task}`\n\nExit: `{code}`\n",
+            encoding="utf-8",
+        )
+    return code
+
+
+def _task_from_github() -> str:
+    path = os.environ.get("GITHUB_EVENT_PATH")
+    if not path or not Path(path).is_file():
+        return ""
+    try:
+        event = json.loads(Path(path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ""
+    comment = ((event.get("comment") or {}).get("body") or "").strip()
+    if comment.lower().startswith("/forge "):
+        return comment[7:].strip()
+    return str((event.get("inputs") or {}).get("task") or "")
 
 
 def _cmd_auth(args: argparse.Namespace) -> int:

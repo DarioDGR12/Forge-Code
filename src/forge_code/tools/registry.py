@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Iterable
 
 from forge_code.permissions import PermissionGate
+
+AskFn = Callable[[str, dict[str, Any]], bool]
 from forge_code.tools.base import ToolSpec
 from forge_code.tools.bash import run_bash
 from forge_code.tools.fs import edit_file, list_dir, read_file, write_file
@@ -22,9 +25,18 @@ READ_TOOLS = {"read_file"}
 
 
 class ToolRegistry:
-    def __init__(self, tools: Iterable[ToolSpec], gate: PermissionGate | None = None):
+    def __init__(
+        self,
+        tools: Iterable[ToolSpec],
+        gate: PermissionGate | None = None,
+        ask: AskFn | None = None,
+    ):
         self._tools = {tool.name: tool for tool in tools}
         self.gate = gate
+        self.ask = ask
+
+    def add(self, spec: ToolSpec) -> None:
+        self._tools[spec.name] = spec
 
     def names(self) -> list[str]:
         return list(self._tools)
@@ -68,13 +80,20 @@ class ToolRegistry:
                 return f"error: {decision.reason}"
         if name == "bash":
             decision = self.gate.review_bash(str(args.get("command") or ""))
+            if decision.ask:
+                command = str(args.get("command") or "")
+                if self.ask and self.ask("bash", args):
+                    return None
+                return f"error: user denied bash: {command}"
             if not decision.allowed:
                 return f"error: {decision.reason}"
         return None
 
 
-def default_registry(gate: PermissionGate | None = None) -> ToolRegistry:
-    return ToolRegistry(_builtin_tools(), gate=gate)
+def default_registry(
+    gate: PermissionGate | None = None, ask: AskFn | None = None
+) -> ToolRegistry:
+    return ToolRegistry(_builtin_tools(), gate=gate, ask=ask)
 
 
 def _builtin_tools() -> list[ToolSpec]:

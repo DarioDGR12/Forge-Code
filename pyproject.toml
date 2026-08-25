@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "forge-code"
-version = "0.2.0"
+version = "0.3.0"
 description = "Open-source AI coding agent for the terminal. BYOK, local models, integrated QA."
 readme = "README.md"
 license = { text = "Apache-2.0" }

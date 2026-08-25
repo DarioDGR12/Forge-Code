@@ -38,3 +38,13 @@ def test_tools_lists_builtins() -> None:
 def test_sessions_empty(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     assert main(["sessions", "--repo", str(tmp_path)]) == 0
+
+
+def test_undo_empty_repo(tmp_path) -> None:
+    assert main(["undo", "--repo", str(tmp_path)]) == 0
+
+
+def test_ci_requires_task(monkeypatch) -> None:
+    monkeypatch.delenv("FORGE_TASK", raising=False)
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    assert main(["ci"]) == 2
