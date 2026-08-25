@@ -11,6 +11,7 @@ def test_lang_and_spanish(monkeypatch) -> None:
     assert "forjando" in t("forging")
     assert "s/N" in t("allow_bash", cmd="ls")
     assert "nada" in t("no_diff")
+    assert "pregunta" in t("ask_usage")
 
 
 def test_lang_english_default(monkeypatch) -> None:

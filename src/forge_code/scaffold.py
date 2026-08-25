@@ -26,6 +26,7 @@ FORGEIGNORE = """# Extra paths Forge should not search (on top of defaults).
 node_modules/
 __pycache__/
 .env
+.worktrees/
 """
 
 SKILL_PYTHON = """# Python
@@ -39,6 +40,21 @@ COMMAND_EXPLAIN = """# explain
 
 Explain the current change set in plain language.
 Use git_status and git_diff. Do not edit.
+
+Focus: $ARGS
+"""
+
+COMMAND_TEST = """# test
+
+How should we verify $ARGS?
+Use existing tests and integrated QA. Quote tool output. Do not invent results.
+If you must edit, keep the change small.
+"""
+
+COMMAND_COMMIT = """# commit-msg
+
+Draft a conventional commit message for the current changes.
+Use git_status and git_diff. Do not run git_commit. Do not edit files.
 
 Focus: $ARGS
 """
@@ -62,6 +78,8 @@ def init_workspace(root: Path) -> list[tuple[str, str]]:
         (root / ".forgeignore", FORGEIGNORE),
         (root / ".forge" / "skills" / "python.md", SKILL_PYTHON),
         (root / ".forge" / "commands" / "explain.md", COMMAND_EXPLAIN),
+        (root / ".forge" / "commands" / "test.md", COMMAND_TEST),
+        (root / ".forge" / "commands" / "commit-msg.md", COMMAND_COMMIT),
         (root / ".forge" / "hooks" / "README.md", HOOKS_README),
     ]
     results: list[tuple[str, str]] = []

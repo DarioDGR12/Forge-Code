@@ -23,7 +23,7 @@ def fetch_url(_root: Path, args: dict[str, Any]) -> str:
     request = urllib.request.Request(
         url,
         method="GET",
-        headers={"User-Agent": "Forge-Code/0.5 (docs fetch)"},
+        headers={"User-Agent": "Forge-Code/0.6 (docs fetch)"},
     )
     try:
         with urllib.request.urlopen(request, timeout=15) as response:

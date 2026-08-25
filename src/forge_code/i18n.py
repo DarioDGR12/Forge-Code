@@ -16,6 +16,9 @@ STRINGS = {
         "no_diff": "no edits to diff",
         "no_commands": "no custom commands in .forge/commands",
         "empty_memory": "memory is empty",
+        "ask_usage": "usage: /ask <question>",
+        "nothing_retry": "nothing to retry",
+        "no_reply": "no assistant reply yet",
     },
     "es": {
         "forging": "forjando…",
@@ -27,6 +30,9 @@ STRINGS = {
         "no_diff": "nada que comparar",
         "no_commands": "no hay comandos en .forge/commands",
         "empty_memory": "la memoria está vacía",
+        "ask_usage": "uso: /ask <pregunta>",
+        "nothing_retry": "nada que repetir",
+        "no_reply": "aún no hay respuesta",
     },
 }
 

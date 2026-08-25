@@ -18,6 +18,7 @@ DEFAULT_PATTERNS = (
     ".mypy_cache/",
     ".ruff_cache/",
     ".forge/",
+    ".worktrees/",
     "dist/",
     "build/",
     "*.pyc",

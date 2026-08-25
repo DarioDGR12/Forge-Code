@@ -186,6 +186,9 @@ def _enable_readline(root: Path) -> None:
         "/undo",
         "/diff",
         "/review",
+        "/ask ",
+        "/retry",
+        "/last",
         "/commands",
         "/memory",
         "/mcp",
@@ -308,6 +311,25 @@ def _slash(
             prompt += f"\nFocus: {arg}"
         ok("mode → plan (review). /mode build to edit")
         return RUN_PREFIX + prompt
+    if cmd == "ask":
+        if not arg:
+            error(t("ask_usage"))
+            return ""
+        cfg.mode = "plan"
+        ok("mode → plan (ask). /mode build to edit")
+        return RUN_PREFIX + arg
+    if cmd == "retry":
+        if not session.title:
+            info(t("nothing_retry"))
+            return ""
+        return RUN_PREFIX + session.title
+    if cmd == "last":
+        for message in reversed(history):
+            if message.role == "assistant" and message.content.strip():
+                speak(message.content)
+                return ""
+        info(t("no_reply"))
+        return ""
     if cmd == "commands":
         found = load_commands(root)
         if not found:

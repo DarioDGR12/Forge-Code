@@ -6,13 +6,13 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.5.0  
+Apache License 2.0 · v0.6.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
 $ forge
 
-  Forge  v0.5.0
+  Forge  v0.6.0
   session  a1b2c3d4e5f6
   repo     ~/src/app
   model    ollama/qwen2.5-coder:7b
@@ -162,6 +162,8 @@ Pin extra checks in `.forge/config.json`:
 | `forge` | Interactive agent (REPL) |
 | `forge --resume ID` | Continue a saved session |
 | `forge run "task"` | One shot |
+| `forge run --plan "task"` | One shot, read-only |
+| `forge ask "question"` | Read-only Q&A (plan mode) |
 | `forge run "task" --json` | Machine-readable result |
 | `forge auth login <p>` | BYOK |
 | `forge models` | Local + remote models |
@@ -176,9 +178,10 @@ Pin extra checks in `.forge/config.json`:
 | `forge diff` | Last agent edits or current git diff |
 | `forge commands` | List `.forge/commands/*.md` slash commands |
 | `forge memory` | Print `.forge/memory.md` |
+| `forge worktree add\|list\|remove` | Isolated git worktrees under `.worktrees/` |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
 
 Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
@@ -199,12 +202,27 @@ Markdown files in `.forge/commands/*.md` become slash commands. `$ARGS` / `{{arg
 
 ```bash
 forge init
-# writes .forge/commands/explain.md
+# writes explain, test, commit-msg
 # then, in the REPL:
 /explain the auth package
-/review
-/compact hard
+/test the login flow
+/commit-msg
+/ask where is the QA runner?
+/retry
 ```
+
+## Worktrees
+
+```bash
+forge worktree add hotfix
+# → .worktrees/hotfix on branch forge/hotfix
+cd .worktrees/hotfix
+forge run "fix the failing tests"
+cd -
+forge worktree remove hotfix
+```
+
+Forge ignores `.worktrees/` in search. The branch is left in place after `remove`.
 
 ## Hooks
 

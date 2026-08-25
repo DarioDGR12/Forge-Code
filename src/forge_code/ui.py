@@ -120,6 +120,9 @@ def help_text() -> str:
 - `/undo` — revert last agent edits
 - `/diff` — last edits or git diff
 - `/review [focus]` — plan-mode review
+- `/ask <question>` — read-only Q&A
+- `/retry` — repeat last task
+- `/last` — reprint last assistant reply
 - `/commands` `/memory`
 - `/bash allow|ask|deny`
 - `/mcp` — configured MCP servers
@@ -129,8 +132,10 @@ def help_text() -> str:
 - Ctrl+C stops the current turn
 
 **CLI**
-`forge run "fix the failing tests"`
+`forge run "fix the failing tests"` · `forge run --plan "…"`
+`forge ask "where is auth handled?"`
 `forge ci --task "..."` · `forge undo` · `forge diff`
+`forge worktree add|list|remove NAME`
 `forge qa` · `forge auth login openai` · `forge models` · `forge sessions`
 `forge mcp` · `forge commands` · `forge memory` · `forge doctor`
 """.strip()

@@ -11,6 +11,7 @@ def test_default_ignores_secrets_and_vcs(tmp_path: Path) -> None:
     assert matcher.ignored(".env")
     assert matcher.ignored("src/__pycache__/x.pyc")
     assert matcher.ignored(".git/config")
+    assert matcher.ignored(".worktrees/hotfix/app.py")
     assert not matcher.ignored("src/app.py")
 
 

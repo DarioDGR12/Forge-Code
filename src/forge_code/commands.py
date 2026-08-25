@@ -32,6 +32,10 @@ RESERVED = {
     "commands",
     "review",
     "memory",
+    "ask",
+    "retry",
+    "last",
+    "worktree",
 }
 
 _NAME = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")

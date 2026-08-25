@@ -56,6 +56,39 @@ def test_mcp_lists_none(tmp_path, monkeypatch) -> None:
     assert main(["mcp"]) == 0
 
 
+def test_ask_and_worktree_cli(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    try:
+        main(["ask"])
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError("ask without question should exit")
+    assert main(["worktree", "add", "x", "--repo", str(tmp_path)]) == 2
+    assert main(["worktree", "list", "--repo", str(tmp_path)]) == 0
+
+
+def test_run_plan_sets_mode(tmp_path, monkeypatch) -> None:
+    from forge_code.agent import TurnResult
+
+    seen: dict = {}
+
+    def fake_run(self, history, task):
+        seen["mode"] = self.cfg.mode
+        seen["qa"] = self.cfg.qa.auto
+        seen["task"] = task
+        return TurnResult(text="ok")
+
+    monkeypatch.setattr("forge_code.cli.Agent.run", fake_run)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    assert main(["ask", "where is add?", "--repo", str(tmp_path)]) == 0
+    assert seen["mode"] == "plan"
+    assert seen["qa"] is False
+    assert seen["task"] == "where is add?"
+    assert main(["run", "--plan", "inspect", "--repo", str(tmp_path)]) == 0
+    assert seen["mode"] == "plan"
+
+
 def test_init_diff_commands_memory(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))

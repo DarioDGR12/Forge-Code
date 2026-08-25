@@ -26,6 +26,7 @@ from forge_code.session import export_markdown, list_sessions, load_session
 from forge_code.tools.memory import load_memory
 from forge_code.tools.registry import default_registry
 from forge_code.ui import auth_table, console, error, mcp_table, ok, qa_panel, session_table, speak
+from forge_code.worktree import add_worktree, list_worktrees, remove_worktree
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,6 +44,10 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run", help="one-shot non-interactive task", parents=[common])
     run.add_argument("task", help="what to do")
     run.add_argument("--json", action="store_true")
+    run.add_argument("--plan", action="store_true", help="read-only (no edits)")
+
+    ask = sub.add_parser("ask", help="read-only question (plan mode)", parents=[common])
+    ask.add_argument("question", help="what to inspect")
 
     ci = sub.add_parser("ci", help="non-interactive run for GitHub Actions", parents=[common])
     ci.add_argument("--task", help="task text (or $FORGE_TASK / event)")
@@ -70,6 +75,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("commands", help="list custom slash commands", parents=[common])
     sub.add_parser("memory", help="print .forge/memory.md", parents=[common])
 
+    worktree = sub.add_parser("worktree", help="isolated git worktrees", parents=[common])
+    worktree.add_argument("action", choices=["add", "list", "remove"])
+    worktree.add_argument("name", nargs="?", help="worktree name")
+
     sessions = sub.add_parser("sessions", help="list or export saved sessions", parents=[common])
     sessions.add_argument("action", nargs="?", default="list", choices=["list", "show", "export"])
     sessions.add_argument("session_id", nargs="?")
@@ -82,7 +91,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd is None:
         return start_repl(root, cfg, session_id=args.resume)
     if args.cmd == "run":
-        return _cmd_run(root, cfg, args.task, args.json)
+        return _cmd_run(root, cfg, args.task, args.json, plan=args.plan)
+    if args.cmd == "ask":
+        return _cmd_run(root, cfg, args.question, False, plan=True)
     if args.cmd == "ci":
         return _cmd_ci(root, cfg, args)
     if args.cmd == "undo":
@@ -125,13 +136,18 @@ def main(argv: list[str] | None = None) -> int:
         text = load_memory(root)
         console.print(text or t("empty_memory"))
         return 0
+    if args.cmd == "worktree":
+        return _cmd_worktree(root, args)
     if args.cmd == "sessions":
         return _cmd_sessions(root, args)
     error(f"unknown command {args.cmd}")
     return 2
 
 
-def _cmd_run(root: Path, cfg, task: str, as_json: bool) -> int:
+def _cmd_run(root: Path, cfg, task: str, as_json: bool, plan: bool = False) -> int:
+    if plan:
+        cfg.mode = "plan"
+        cfg.qa.auto = False
     history: list[Message] = []
     try:
         result = Agent(root, cfg).run(history, task)
@@ -254,6 +270,29 @@ def _cmd_doctor(root: Path, cfg) -> int:
     qa_panel(report)
     save_config(cfg)
     return 0 if report.ok else 1
+
+
+def _cmd_worktree(root: Path, args: argparse.Namespace) -> int:
+    if args.action == "list":
+        rows = list_worktrees(root)
+        if not rows:
+            console.print("no worktrees")
+            return 0
+        for path, extra in rows:
+            console.print(f"  {path}  {extra}")
+        return 0
+    if not args.name:
+        error("worktree name required")
+        return 2
+    if args.action == "add":
+        message = add_worktree(root, args.name)
+    else:
+        message = remove_worktree(root, args.name)
+    if message.startswith("error:"):
+        error(message)
+        return 2
+    ok(message)
+    return 0
 
 
 def _cmd_init(root: Path) -> int:
