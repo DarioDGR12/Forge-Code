@@ -19,6 +19,8 @@ STRINGS = {
         "ask_usage": "usage: /ask <question>",
         "nothing_retry": "nothing to retry",
         "no_reply": "no assistant reply yet",
+        "budget_hit": "stopped — session budget reached",
+        "shared": "wrote {path}",
     },
     "es": {
         "forging": "forjando…",
@@ -33,6 +35,8 @@ STRINGS = {
         "ask_usage": "uso: /ask <pregunta>",
         "nothing_retry": "nada que repetir",
         "no_reply": "aún no hay respuesta",
+        "budget_hit": "detenido — presupuesto de la sesión agotado",
+        "shared": "escrito {path}",
     },
 }
 

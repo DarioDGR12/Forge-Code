@@ -75,6 +75,19 @@ class RetryConfig:
     backoff: float = 0.8
 
 
+DEFAULT_ALIASES: dict[str, str] = {
+    "fast": "gpt-4.1-mini",
+    "smart": "claude-sonnet-4-20250514",
+    "local": "qwen2.5-coder:7b",
+}
+
+
+@dataclass
+class BudgetConfig:
+    max_usd: float = 0.0
+    max_tokens: int = 0
+
+
 @dataclass
 class AppConfig:
     provider: str = "openai"
@@ -90,6 +103,8 @@ class AppConfig:
     theme: str = "cyan"
     stream: bool = True
     mcp: dict[str, MCPServerConfig] = field(default_factory=dict)
+    aliases: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_ALIASES))
+    budget: BudgetConfig = field(default_factory=BudgetConfig)
 
     def provider_spec(self, name: str | None = None) -> dict[str, str]:
         key = name or self.provider
@@ -103,11 +118,10 @@ class AppConfig:
 
     def resolved_model(self) -> str:
         if self.model:
-            return self.model
-        env = os.environ.get("FORGE_MODEL")
-        if env:
-            return env
-        return self.provider_spec().get("default_model") or "gpt-4.1-mini"
+            raw = self.model
+        else:
+            raw = os.environ.get("FORGE_MODEL") or self.provider_spec().get("default_model") or "gpt-4.1-mini"
+        return self.aliases.get(raw, raw)
 
 
 def config_path() -> Path:
@@ -127,8 +141,13 @@ def load_config() -> AppConfig:
     qa_raw = raw.get("qa") or {}
     retry_raw = raw.get("retry") or {}
     perm_raw = raw.get("permissions") or {}
+    budget_raw = raw.get("budget") or {}
     providers = dict(DEFAULT_PROVIDERS)
     providers.update(raw.get("providers") or {})
+    if "aliases" in raw and isinstance(raw["aliases"], dict):
+        aliases = {str(k): str(v) for k, v in raw["aliases"].items() if k and v}
+    else:
+        aliases = dict(DEFAULT_ALIASES)
     cfg = AppConfig(
         provider=os.environ.get("FORGE_PROVIDER") or raw.get("provider") or "openai",
         model=raw.get("model") or "",
@@ -153,6 +172,11 @@ def load_config() -> AppConfig:
         theme=str(raw.get("theme") or "cyan"),
         stream=bool(raw.get("stream", True)),
         mcp=_parse_mcp(raw.get("mcp") or {}),
+        aliases=aliases,
+        budget=BudgetConfig(
+            max_usd=float(os.environ.get("FORGE_MAX_COST") or budget_raw.get("max_usd") or 0),
+            max_tokens=int(os.environ.get("FORGE_MAX_TOKENS") or budget_raw.get("max_tokens") or 0),
+        ),
     )
     return cfg
 
@@ -171,6 +195,8 @@ def save_config(cfg: AppConfig) -> None:
         "compact_after_chars": cfg.compact_after_chars,
         "theme": cfg.theme,
         "stream": cfg.stream,
+        "aliases": cfg.aliases,
+        "budget": asdict(cfg.budget),
         "mcp": {
             name: {"command": spec.command, "args": spec.args, "env": spec.env}
             for name, spec in cfg.mcp.items()

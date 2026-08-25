@@ -6,13 +6,13 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.6.0  
+Apache License 2.0 · v0.7.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
 $ forge
 
-  Forge  v0.6.0
+  Forge  v0.7.0
   session  a1b2c3d4e5f6
   repo     ~/src/app
   model    ollama/qwen2.5-coder:7b
@@ -179,9 +179,12 @@ Pin extra checks in `.forge/config.json`:
 | `forge commands` | List `.forge/commands/*.md` slash commands |
 | `forge memory` | Print `.forge/memory.md` |
 | `forge worktree add\|list\|remove` | Isolated git worktrees under `.worktrees/` |
+| `forge alias` | List / set / remove model aliases |
+| `forge budget` | Show the session cost/token cap |
+| `forge share [ID]` | Write a markdown share under `.forge/shares/` |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/alias` `/budget` `/share` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
 
 Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
@@ -223,6 +226,30 @@ forge worktree remove hotfix
 ```
 
 Forge ignores `.worktrees/` in search. The branch is left in place after `remove`.
+
+## Aliases and budget
+
+Default aliases: `fast` → `gpt-4.1-mini`, `smart` → Claude Sonnet, `local` → `qwen2.5-coder:7b`.
+
+```bash
+forge alias set flash gpt-4.1-nano
+# REPL: /model flash
+#       /alias fast gpt-4.1-mini
+#       /budget 0.50
+#       /budget tokens 80000
+#       /budget off
+```
+
+Caps also accept `FORGE_MAX_COST` and `FORGE_MAX_TOKENS`. When the session is over budget, Forge stops instead of calling the model again.
+
+```json
+{
+  "aliases": { "fast": "gpt-4.1-mini" },
+  "budget": { "max_usd": 0.5, "max_tokens": 80000 }
+}
+```
+
+`/share` and `forge share` write `.forge/shares/<session>.md`.
 
 ## Hooks
 
@@ -299,6 +326,8 @@ Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can 
 | `.forge/skills/*.md` | Extra system-prompt skills |
 | `.forge/commands/*.md` | Custom slash commands |
 | `.forge/memory.md` | Persistent notes (`memory_write`) |
+| `.forge/shares/` | Markdown exports from `/share` |
+| `.worktrees/` | Isolated checkouts from `forge worktree add` |
 | `~/.config/forge-code/` | User config + credentials |
 
 ## Quick demo (no API)

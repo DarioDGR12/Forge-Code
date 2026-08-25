@@ -123,6 +123,7 @@ def help_text() -> str:
 - `/ask <question>` — read-only Q&A
 - `/retry` — repeat last task
 - `/last` — reprint last assistant reply
+- `/alias` `/budget` `/share`
 - `/commands` `/memory`
 - `/bash allow|ask|deny`
 - `/mcp` — configured MCP servers
@@ -138,4 +139,5 @@ def help_text() -> str:
 `forge worktree add|list|remove NAME`
 `forge qa` · `forge auth login openai` · `forge models` · `forge sessions`
 `forge mcp` · `forge commands` · `forge memory` · `forge doctor`
+`forge alias` · `forge budget` · `forge share`
 """.strip()

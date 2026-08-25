@@ -22,10 +22,11 @@ from forge_code.providers.factory import list_remote_models, probe_local
 from forge_code.qa.runner import run_qa
 from forge_code.repl import start_repl
 from forge_code.scaffold import init_workspace
-from forge_code.session import export_markdown, list_sessions, load_session
+from forge_code.session import export_markdown, list_sessions, load_session, share_session
 from forge_code.tools.memory import load_memory
 from forge_code.tools.registry import default_registry
 from forge_code.ui import auth_table, console, error, mcp_table, ok, qa_panel, session_table, speak
+from forge_code.usage import format_budget
 from forge_code.worktree import add_worktree, list_worktrees, remove_worktree
 
 
@@ -78,6 +79,17 @@ def main(argv: list[str] | None = None) -> int:
     worktree = sub.add_parser("worktree", help="isolated git worktrees", parents=[common])
     worktree.add_argument("action", choices=["add", "list", "remove"])
     worktree.add_argument("name", nargs="?", help="worktree name")
+
+    alias_p = sub.add_parser("alias", help="list or set model aliases")
+    alias_p.add_argument("action", nargs="?", default="list", choices=["list", "set", "rm"])
+    alias_p.add_argument("name", nargs="?")
+    alias_p.add_argument("target", nargs="?")
+
+    sub.add_parser("budget", help="show the session token/cost budget")
+
+    share_p = sub.add_parser("share", help="export a session markdown share", parents=[common])
+    share_p.add_argument("session_id", nargs="?")
+    share_p.add_argument("--out", help="markdown path")
 
     sessions = sub.add_parser("sessions", help="list or export saved sessions", parents=[common])
     sessions.add_argument("action", nargs="?", default="list", choices=["list", "show", "export"])
@@ -138,6 +150,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "worktree":
         return _cmd_worktree(root, args)
+    if args.cmd == "alias":
+        return _cmd_alias(cfg, args)
+    if args.cmd == "budget":
+        console.print("budget " + format_budget(cfg.budget.max_usd, cfg.budget.max_tokens))
+        return 0
+    if args.cmd == "share":
+        return _cmd_share(root, args)
     if args.cmd == "sessions":
         return _cmd_sessions(root, args)
     error(f"unknown command {args.cmd}")
@@ -238,6 +257,10 @@ def _cmd_models(cfg) -> int:
         console.print(f"[bold]{cfg.provider}[/]")
         for name in remote[:40]:
             console.print(f"  {name}")
+    if cfg.aliases:
+        console.print("[bold]Aliases[/]")
+        for name, target in sorted(cfg.aliases.items()):
+            console.print(f"  {name} → {target}")
     return 0
 
 
@@ -245,6 +268,8 @@ def _cmd_doctor(root: Path, cfg) -> int:
     console.print(f"repo     {root}")
     console.print(f"provider {cfg.provider}")
     console.print(f"model    {cfg.resolved_model()}")
+    console.print("aliases  " + (", ".join(f"{k}={v}" for k, v in cfg.aliases.items()) or "(none)"))
+    console.print("budget   " + format_budget(cfg.budget.max_usd, cfg.budget.max_tokens))
     console.print(f"mode     {cfg.mode}")
     console.print(f"qa auto  {cfg.qa.auto}")
     console.print(f"bash     {cfg.permissions.bash}")
@@ -292,6 +317,53 @@ def _cmd_worktree(root: Path, args: argparse.Namespace) -> int:
         error(message)
         return 2
     ok(message)
+    return 0
+
+
+def _cmd_alias(cfg, args: argparse.Namespace) -> int:
+    if args.action == "list":
+        if not cfg.aliases:
+            console.print("no aliases")
+            return 0
+        for name, target in sorted(cfg.aliases.items()):
+            console.print(f"  {name} → {target}")
+        return 0
+    if not args.name:
+        error("alias name required")
+        return 2
+    if args.action == "rm":
+        if args.name not in cfg.aliases:
+            error(f"unknown alias {args.name}")
+            return 2
+        del cfg.aliases[args.name]
+        save_config(cfg)
+        ok(f"removed alias {args.name}")
+        return 0
+    if not args.target:
+        error("usage: forge alias set NAME MODEL")
+        return 2
+    cfg.aliases[args.name] = args.target
+    save_config(cfg)
+    ok(f"{args.name} → {args.target}")
+    return 0
+
+
+def _cmd_share(root: Path, args: argparse.Namespace) -> int:
+    if args.session_id:
+        try:
+            session = load_session(root, args.session_id)
+        except FileNotFoundError as exc:
+            error(str(exc))
+            return 2
+    else:
+        items = list_sessions(root)
+        if not items:
+            error("no sessions to share")
+            return 2
+        session = items[0]
+    dest = Path(args.out) if args.out else None
+    path = share_session(root, session, dest)
+    ok(t("shared", path=str(path)))
     return 0
 
 

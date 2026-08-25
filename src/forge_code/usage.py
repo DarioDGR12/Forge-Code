@@ -59,6 +59,26 @@ def _price_key(model: str) -> str | None:
     return None
 
 
+def budget_hit(model: str, usage: Usage, max_usd: float = 0.0, max_tokens: int = 0) -> str:
+    """Return a reason if the usage is over the configured budget, else empty."""
+    if max_tokens > 0 and usage.total >= max_tokens:
+        return f"token budget {usage.total}/{max_tokens}"
+    if max_usd > 0:
+        cost = estimate_cost_usd(model, usage)
+        if cost is not None and cost >= max_usd:
+            return f"cost budget ${cost:.4f}/${max_usd:.4f}"
+    return ""
+
+
+def format_budget(max_usd: float, max_tokens: int) -> str:
+    parts: list[str] = []
+    if max_usd > 0:
+        parts.append(f"${max_usd:.4f}")
+    if max_tokens > 0:
+        parts.append(f"{max_tokens} tokens")
+    return " · ".join(parts) if parts else "off"
+
+
 def format_usage(model: str, usage: Usage) -> str:
     cost = estimate_cost_usd(model, usage)
     bits = [f"{usage.total} tokens ({usage.prompt_tokens} in / {usage.completion_tokens} out)"]

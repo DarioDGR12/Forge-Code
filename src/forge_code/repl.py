@@ -24,6 +24,7 @@ from forge_code.session import (
     load_session,
     new_session,
     save_session,
+    share_session,
 )
 from forge_code.tools.memory import load_memory
 from forge_code.tools.registry import default_registry
@@ -40,7 +41,7 @@ from forge_code.ui import (
     tool_result,
     usage_line,
 )
-from forge_code.usage import Usage, format_usage
+from forge_code.usage import Usage, budget_hit, format_budget, format_usage
 
 HISTORY_PATH_ENV = "FORGE_HISTORY"
 RUN_PREFIX = ">>"
@@ -81,11 +82,13 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
             info(message.splitlines()[0] if message else "hook")
         elif kind == "compact":
             info(message)
+        elif kind == "budget":
+            info(message)
         elif kind == "assistant":
             speak(message)
 
     cancel = CancelFlag()
-    agent = Agent(root, cfg, on_event=on_event, cancel=cancel)
+    agent = Agent(root, cfg, on_event=on_event, cancel=cancel, session_usage=totals)
     while True:
         try:
             raw = _read_input()
@@ -106,6 +109,12 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
                 raw = code[len(RUN_PREFIX) :]
             else:
                 continue
+        reason = budget_hit(
+            cfg.resolved_model(), totals, cfg.budget.max_usd, cfg.budget.max_tokens
+        )
+        if reason:
+            error(t("budget_hit") + f" ({reason})")
+            continue
         cancel.reset()
         try:
             result = agent.run(history, raw)
@@ -117,6 +126,7 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
             error(str(exc))
             continue
         totals = totals.add(result.usage)
+        agent.session_usage = totals
         session.messages = history
         session.usage = totals
         session.touch(title=raw)
@@ -125,6 +135,8 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
         save_session(root, session)
         if result.interrupted:
             info(t("interrupted"))
+        if result.budget_hit:
+            info(t("budget_hit"))
         if result.qa is not None:
             qa_panel(result.qa)
         usage_line(cfg.resolved_model(), result.usage)
@@ -191,6 +203,9 @@ def _enable_readline(root: Path) -> None:
         "/last",
         "/commands",
         "/memory",
+        "/alias ",
+        "/budget",
+        "/share",
         "/mcp",
         "/bash allow",
         "/bash ask",
@@ -235,10 +250,19 @@ def _slash(
     if cmd == "tools":
         info(" ".join(default_registry().names()))
         return ""
-    if cmd == "model" and arg:
+    if cmd == "model":
+        if not arg:
+            info(f"model {cfg.model or '(default)'} → {cfg.resolved_model()}")
+            for name, target in sorted(cfg.aliases.items()):
+                info(f"  {name} = {target}")
+            return ""
         cfg.model = arg
         save_config(cfg)
-        ok(f"model → {arg}")
+        resolved = cfg.resolved_model()
+        if arg in cfg.aliases and cfg.aliases[arg] != arg:
+            ok(f"model → {arg} ({resolved})")
+        else:
+            ok(f"model → {resolved}")
         return ""
     if cmd == "provider" and arg:
         cfg.provider = arg
@@ -294,6 +318,15 @@ def _slash(
         path.write_text(export_markdown(session), encoding="utf-8")
         ok(f"wrote {path}")
         return ""
+    if cmd == "share":
+        dest = Path(arg) if arg else None
+        path = share_session(root, session, dest)
+        ok(t("shared", path=str(path)))
+        return ""
+    if cmd == "alias":
+        return _slash_alias(cfg, arg)
+    if cmd == "budget":
+        return _slash_budget(cfg, arg)
     if cmd == "undo":
         ok(undo_turn(root))
         return ""
@@ -373,4 +406,64 @@ def _slash(
     if custom:
         return RUN_PREFIX + expand_command(custom, arg)
     error(f"unknown command /{cmd}. try /help")
+    return ""
+
+
+def _slash_alias(cfg: AppConfig, arg: str) -> str:
+    if not arg:
+        if not cfg.aliases:
+            info("no aliases")
+            return ""
+        for name, target in sorted(cfg.aliases.items()):
+            info(f"  {name} = {target}")
+        return ""
+    parts = arg.split(maxsplit=2)
+    if parts[0] == "rm" and len(parts) == 2:
+        if parts[1] not in cfg.aliases:
+            error(f"unknown alias {parts[1]}")
+            return ""
+        del cfg.aliases[parts[1]]
+        save_config(cfg)
+        ok(f"removed alias {parts[1]}")
+        return ""
+    if len(parts) >= 2 and parts[0] != "rm":
+        name, target = parts[0], parts[1]
+        if not name.replace("-", "").replace("_", "").isalnum():
+            error("alias name must be letters, digits, '-' or '_'")
+            return ""
+        cfg.aliases[name] = target
+        save_config(cfg)
+        ok(f"{name} → {target}")
+        return ""
+    error("usage: /alias  |  /alias NAME MODEL  |  /alias rm NAME")
+    return ""
+
+
+def _slash_budget(cfg: AppConfig, arg: str) -> str:
+    if not arg:
+        info("budget " + format_budget(cfg.budget.max_usd, cfg.budget.max_tokens))
+        return ""
+    if arg in {"off", "0"}:
+        cfg.budget.max_usd = 0.0
+        cfg.budget.max_tokens = 0
+        save_config(cfg)
+        ok("budget off")
+        return ""
+    parts = arg.split()
+    if parts[0] == "tokens" and len(parts) == 2:
+        try:
+            cfg.budget.max_tokens = max(0, int(parts[1]))
+        except ValueError:
+            error("usage: /budget tokens 50000")
+            return ""
+        save_config(cfg)
+        ok("budget " + format_budget(cfg.budget.max_usd, cfg.budget.max_tokens))
+        return ""
+    try:
+        cfg.budget.max_usd = max(0.0, float(parts[0]))
+    except ValueError:
+        error("usage: /budget  |  /budget 0.25  |  /budget tokens 50000  |  /budget off")
+        return ""
+    save_config(cfg)
+    ok("budget " + format_budget(cfg.budget.max_usd, cfg.budget.max_tokens))
     return ""

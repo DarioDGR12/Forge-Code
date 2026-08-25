@@ -110,6 +110,7 @@ def export_markdown(session: Session) -> str:
         f"- created: {session.created_at}",
         f"- model: {session.provider}/{session.model}",
         f"- title: {session.title or '(untitled)'}",
+        f"- tokens: {session.usage.total} ({session.usage.prompt_tokens} in / {session.usage.completion_tokens} out)",
         "",
     ]
     for message in session.messages:
@@ -126,6 +127,13 @@ def export_markdown(session: Session) -> str:
         lines.append(message.content or "")
         lines.append("")
     return "\n".join(lines)
+
+
+def share_session(root: Path, session: Session, dest: Path | None = None) -> Path:
+    path = dest or (root / ".forge" / "shares" / f"{session.id}.md")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(export_markdown(session), encoding="utf-8")
+    return path
 
 
 def _message_dict(message: Message) -> dict:

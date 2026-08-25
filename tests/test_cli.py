@@ -56,6 +56,15 @@ def test_mcp_lists_none(tmp_path, monkeypatch) -> None:
     assert main(["mcp"]) == 0
 
 
+def test_alias_budget_share_cli(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    assert main(["alias"]) == 0
+    assert main(["alias", "set", "flash", "gpt-4.1-nano"]) == 0
+    assert main(["budget"]) == 0
+    assert main(["share", "--repo", str(tmp_path)]) == 2
+
+
 def test_ask_and_worktree_cli(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     try:

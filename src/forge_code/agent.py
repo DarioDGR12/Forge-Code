@@ -22,7 +22,7 @@ from forge_code.providers.factory import complete as default_complete
 from forge_code.qa.runner import QAReport, run_qa
 from forge_code.tools.registry import ToolRegistry, default_registry
 from forge_code.undo import checkpoint, remember_write, undo_last
-from forge_code.usage import Usage
+from forge_code.usage import Usage, budget_hit
 
 OnEvent = Callable[[str, str], None]
 CompleteFn = Callable[..., Completion]
@@ -37,6 +37,7 @@ class TurnResult:
     usage: Usage = field(default_factory=Usage)
     compacted: bool = False
     interrupted: bool = False
+    budget_hit: bool = False
 
 
 class Agent:
@@ -51,6 +52,7 @@ class Agent:
         cancel: CancelFlag | None = None,
         ask=None,
         attach_mcp: bool = True,
+        session_usage: Usage | None = None,
     ):
         self.root = root
         self.cfg = cfg
@@ -67,6 +69,7 @@ class Agent:
         self.on_event = on_event or (lambda _kind, _msg: None)
         self.complete_fn = complete_fn or default_complete
         self.cancel = cancel or CancelFlag()
+        self.session_usage = session_usage or Usage()
 
     def run(self, history: list[Message], user_text: str) -> TurnResult:
         messages = list(history)
@@ -88,10 +91,22 @@ class Agent:
         tools = self.registry.schemas(self.cfg.mode)
         step = 0
         snapped = False
+        hit_budget = False
 
         try:
             for step in range(self.max_steps):
                 self.cancel.check()
+                reason = budget_hit(
+                    self.cfg.resolved_model(),
+                    self.session_usage.add(usage),
+                    self.cfg.budget.max_usd,
+                    self.cfg.budget.max_tokens,
+                )
+                if reason:
+                    last_text = last_text or f"Stopped: {reason}."
+                    self.on_event("budget", reason)
+                    hit_budget = True
+                    break
                 streamed: list[str] = []
 
                 def on_delta(piece: str, bucket: list[str] = streamed) -> None:
@@ -201,6 +216,7 @@ class Agent:
                 usage=usage,
                 compacted=compacted,
                 interrupted=True,
+                budget_hit=hit_budget,
             )
 
         run_hook(self.root, "post_turn", {"FORGE_TASK": user_text[:200]})
@@ -213,6 +229,7 @@ class Agent:
             steps=step + 1,
             usage=usage,
             compacted=compacted,
+            budget_hit=hit_budget,
         )
 
     def _complete(self, messages: list[Message], tools: list, on_delta) -> Completion:

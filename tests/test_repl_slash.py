@@ -6,7 +6,7 @@ from pathlib import Path
 
 from forge_code.config import AppConfig
 from forge_code.models import Message
-from forge_code.repl import RUN_PREFIX, _slash
+from forge_code.repl import RUN_PREFIX, _slash, _slash_alias, _slash_budget
 from forge_code.usage import Usage
 
 
@@ -38,3 +38,19 @@ def test_ask_retry_last(tmp_path: Path) -> None:
     assert none == ""
     none_last = _slash("/last", tmp_path, cfg, [], _session(), totals)
     assert none_last == ""
+
+
+def test_alias_and_budget_slash(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    cfg = AppConfig()
+    assert _slash_alias(cfg, "flash gpt-4.1-nano") == ""
+    assert cfg.aliases["flash"] == "gpt-4.1-nano"
+    assert _slash_alias(cfg, "rm flash") == ""
+    assert "flash" not in cfg.aliases
+    assert _slash_budget(cfg, "0.25") == ""
+    assert cfg.budget.max_usd == 0.25
+    assert _slash_budget(cfg, "tokens 100") == ""
+    assert cfg.budget.max_tokens == 100
+    assert _slash_budget(cfg, "off") == ""
+    assert cfg.budget.max_usd == 0
+    assert cfg.budget.max_tokens == 0
