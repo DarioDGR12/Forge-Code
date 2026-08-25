@@ -6,8 +6,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from forge_code.config import AppConfig
-
 
 def explore_repo(root: Path, args: dict[str, Any]) -> str:
     """Read-only nested pass: glob + grep + read, no writes."""
@@ -32,6 +30,7 @@ def explore_repo(root: Path, args: dict[str, Any]) -> str:
 
 def explore_with_complete(root: Path, question: str, complete_fn) -> str:
     from forge_code.agent import Agent
+    from forge_code.config import AppConfig
     from forge_code.permissions import PermissionGate
     from forge_code.tools.registry import default_registry
 
