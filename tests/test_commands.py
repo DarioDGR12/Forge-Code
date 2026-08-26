@@ -15,6 +15,8 @@ def test_load_and_expand_commands(tmp_path: Path) -> None:
     (folder / "help.md").write_text("should be ignored\n", encoding="utf-8")
     (folder / "find.md").write_text("should be ignored\n", encoding="utf-8")
     (folder / "pin.md").write_text("should be ignored\n", encoding="utf-8")
+    (folder / "new.md").write_text("should be ignored\n", encoding="utf-8")
+    (folder / "copy.md").write_text("should be ignored\n", encoding="utf-8")
     (folder / "Bad Name.md").write_text("invalid\n", encoding="utf-8")
     found = load_commands(tmp_path)
     assert list(found) == ["explain"]

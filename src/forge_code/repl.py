@@ -18,11 +18,12 @@ from forge_code.models import Message
 from forge_code.qa.runner import run_qa
 from forge_code.scaffold import init_workspace
 from forge_code.session import (
+    delete_session,
     export_markdown,
     list_sessions,
     list_shares,
-    load_session,
     new_session,
+    resolve_session,
     save_session,
     search_sessions,
     share_session,
@@ -58,7 +59,11 @@ REVIEW_PROMPT = (
 def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int:
     _enable_readline(root)
     if session_id:
-        session = load_session(root, session_id)
+        try:
+            session = resolve_session(root, session_id)
+        except FileNotFoundError as exc:
+            error(str(exc))
+            return 2
         history = list(session.messages)
         info(f"resumed session {session.id}")
     else:
@@ -208,6 +213,9 @@ def _enable_readline(root: Path) -> None:
         "/last",
         "/find ",
         "/pin",
+        "/new",
+        "/rename ",
+        "/copy",
         "/commands",
         "/memory",
         "/alias ",
@@ -279,7 +287,10 @@ def _slash(
         else:
             ok(f"model → {resolved}")
         return ""
-    if cmd == "provider" and arg:
+    if cmd == "provider":
+        if not arg:
+            info(f"provider {cfg.provider}")
+            return ""
         cfg.provider = arg
         save_config(cfg)
         ok(f"provider → {arg}")
@@ -319,6 +330,22 @@ def _slash(
             info(left)
         return ""
     if cmd == "sessions":
+        if arg == "rm" or arg.startswith("rm "):
+            sid = arg[2:].strip()
+            if not sid:
+                error(t("sessions_rm_usage"))
+                return ""
+            try:
+                target = resolve_session(root, sid)
+            except FileNotFoundError as exc:
+                error(str(exc))
+                return ""
+            if target.id == session.id:
+                error(t("cannot_delete_current"))
+                return ""
+            delete_session(root, target.id)
+            ok(t("deleted", id=target.id))
+            return ""
         rows = [
             (
                 item.id,
@@ -402,6 +429,47 @@ def _slash(
                 speak(message.content)
                 return ""
         info(t("no_reply"))
+        return ""
+    if cmd == "copy":
+        text = ""
+        for message in reversed(history):
+            if message.role == "assistant" and message.content.strip():
+                text = message.content
+                break
+        if not text:
+            info(t("no_reply"))
+            return ""
+        if _copy_text(text):
+            ok(t("copied"))
+        else:
+            speak(text)
+            info(t("no_clipboard"))
+        return ""
+    if cmd == "new":
+        save_session(root, session)
+        fresh = new_session(root, provider=cfg.provider, model=cfg.resolved_model())
+        session.id = fresh.id
+        session.created_at = fresh.created_at
+        session.updated_at = fresh.updated_at
+        session.title = arg[:80] if arg else ""
+        session.messages = []
+        session.usage = Usage()
+        session.provider = cfg.provider
+        session.model = cfg.resolved_model()
+        if arg:
+            save_session(root, session)
+        history.clear()
+        totals.prompt_tokens = 0
+        totals.completion_tokens = 0
+        ok(t("new_session", id=session.id))
+        return ""
+    if cmd == "rename":
+        if not arg:
+            error(t("rename_usage"))
+            return ""
+        session.title = arg[:80]
+        save_session(root, session)
+        ok(t("renamed", title=session.title))
         return ""
     if cmd == "find":
         if not arg:
@@ -580,3 +648,29 @@ def _slash_theme(cfg: AppConfig, arg: str) -> str:
     save_config(cfg)
     ok(f"theme → {arg}")
     return ""
+
+
+def _copy_text(text: str) -> bool:
+    import shutil
+    import subprocess
+
+    for name, extra in (
+        ("wl-copy", []),
+        ("xclip", ["-selection", "clipboard"]),
+        ("xsel", ["--clipboard", "--input"]),
+        ("pbcopy", []),
+    ):
+        binary = shutil.which(name)
+        if not binary:
+            continue
+        try:
+            subprocess.run(
+                [binary, *extra],
+                input=text.encode("utf-8"),
+                check=True,
+                timeout=3,
+            )
+            return True
+        except (OSError, subprocess.SubprocessError):
+            continue
+    return False

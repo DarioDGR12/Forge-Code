@@ -15,6 +15,7 @@ from forge_code.diffview import preview_writes
 from forge_code.hooks import run_hook
 from forge_code.interrupt import CancelFlag, CancelledError
 from forge_code.mcp import load_mcp_tools
+from forge_code.mentions import expand_mentions
 from forge_code.models import Completion, Message
 from forge_code.permissions import PermissionGate
 from forge_code.prompts import system_prompt
@@ -72,6 +73,7 @@ class Agent:
         self.session_usage = session_usage or Usage()
 
     def run(self, history: list[Message], user_text: str) -> TurnResult:
+        user_text = expand_mentions(self.root, user_text)
         messages = list(history)
         if not messages or messages[0].role != "system":
             messages.insert(0, Message(role="system", content=system_prompt(self.root, self.cfg.mode)))

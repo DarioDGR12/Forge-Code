@@ -23,10 +23,12 @@ from forge_code.qa.runner import run_qa
 from forge_code.repl import start_repl
 from forge_code.scaffold import init_workspace
 from forge_code.session import (
+    delete_session,
     export_markdown,
+    latest_session,
     list_sessions,
     list_shares,
-    load_session,
+    resolve_session,
     search_sessions,
     share_session,
 )
@@ -58,22 +60,37 @@ def main(argv: list[str] | None = None) -> int:
     common.add_argument("--repo", default=".", help="workspace root")
     parser.add_argument("--repo", default=".", help="workspace root")
     parser.add_argument("--resume", help="resume a session id in the REPL")
+    parser.add_argument(
+        "-c",
+        "--continue",
+        dest="continue_last",
+        action="store_true",
+        help="resume the latest session",
+    )
+    parser.add_argument("--model", help="model or alias (this invocation)")
+    parser.add_argument("--provider", help="provider (this invocation)")
     sub = parser.add_subparsers(dest="cmd")
 
     run = sub.add_parser("run", help="one-shot non-interactive task", parents=[common])
-    run.add_argument("task", help="what to do")
+    run.add_argument("task", help="what to do, or - to read stdin")
     run.add_argument("--json", action="store_true")
     run.add_argument("--plan", action="store_true", help="read-only (no edits)")
     run.add_argument("--quiet", "-q", action="store_true", help="no transcript output")
+    run.add_argument("--model", help="model or alias (this invocation)")
+    run.add_argument("--provider", help="provider (this invocation)")
 
     ask = sub.add_parser("ask", help="read-only question (plan mode)", parents=[common])
-    ask.add_argument("question", help="what to inspect")
+    ask.add_argument("question", help="what to inspect, or - to read stdin")
     ask.add_argument("--quiet", "-q", action="store_true")
+    ask.add_argument("--model", help="model or alias (this invocation)")
+    ask.add_argument("--provider", help="provider (this invocation)")
 
     ci = sub.add_parser("ci", help="non-interactive run for GitHub Actions", parents=[common])
     ci.add_argument("--task", help="task text (or $FORGE_TASK / event)")
     ci.add_argument("--json", action="store_true")
     ci.add_argument("--quiet", "-q", action="store_true")
+    ci.add_argument("--model", help="model or alias (this invocation)")
+    ci.add_argument("--provider", help="provider (this invocation)")
 
     sub.add_parser("undo", help="revert the last agent edits", parents=[common])
 
@@ -118,7 +135,9 @@ def main(argv: list[str] | None = None) -> int:
     theme_p.add_argument("name", nargs="?")
 
     sessions = sub.add_parser("sessions", help="list or export saved sessions", parents=[common])
-    sessions.add_argument("action", nargs="?", default="list", choices=["list", "show", "export", "search"])
+    sessions.add_argument(
+        "action", nargs="?", default="list", choices=["list", "show", "export", "search", "rm"]
+    )
     sessions.add_argument("session_id", nargs="?")
     sessions.add_argument("--out", help="markdown path for export")
 
@@ -128,13 +147,26 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = Path(args.repo).resolve()
     cfg = load_config()
+    _apply_overrides(cfg, args)
 
     if args.cmd is None:
-        return start_repl(root, cfg, session_id=args.resume)
+        sid = args.resume
+        if not sid and getattr(args, "continue_last", False):
+            latest = latest_session(root)
+            sid = latest.id if latest else None
+        return start_repl(root, cfg, session_id=sid)
     if args.cmd == "run":
-        return _cmd_run(root, cfg, args.task, args.json, plan=args.plan, quiet=args.quiet)
+        task = _maybe_stdin(args.task)
+        if not task:
+            error("task required (or pass - to read stdin)")
+            return 2
+        return _cmd_run(root, cfg, task, args.json, plan=args.plan, quiet=args.quiet)
     if args.cmd == "ask":
-        return _cmd_run(root, cfg, args.question, False, plan=True, quiet=args.quiet)
+        question = _maybe_stdin(args.question)
+        if not question:
+            error("question required (or pass - to read stdin)")
+            return 2
+        return _cmd_run(root, cfg, question, False, plan=True, quiet=args.quiet)
     if args.cmd == "ci":
         return _cmd_ci(root, cfg, args)
     if args.cmd == "undo":
@@ -427,7 +459,7 @@ def _cmd_theme(cfg, name: str | None) -> int:
 def _cmd_share(root: Path, args: argparse.Namespace) -> int:
     if args.session_id:
         try:
-            session = load_session(root, args.session_id)
+            session = resolve_session(root, args.session_id)
         except FileNotFoundError as exc:
             error(str(exc))
             return 2
@@ -479,11 +511,22 @@ def _cmd_sessions(root: Path, args: argparse.Namespace) -> int:
             error("search query required")
             return 2
         return _cmd_find(root, args.session_id)
+    if args.action == "rm":
+        if not args.session_id:
+            error("session id required")
+            return 2
+        try:
+            deleted = delete_session(root, args.session_id)
+        except FileNotFoundError as exc:
+            error(str(exc))
+            return 2
+        ok(f"deleted {deleted}")
+        return 0
     if not args.session_id:
         error("session id required")
         return 2
     try:
-        session = load_session(root, args.session_id)
+        session = resolve_session(root, args.session_id)
     except FileNotFoundError as exc:
         error(str(exc))
         return 2
@@ -505,6 +548,21 @@ def _cmd_find(root: Path, query: str) -> int:
         [(hit.session_id, hit.role, hit.title, hit.snippet) for hit in hits]
     )
     return 0
+
+
+def _apply_overrides(cfg, args: argparse.Namespace) -> None:
+    model = getattr(args, "model", None)
+    provider = getattr(args, "provider", None)
+    if model:
+        cfg.model = model
+    if provider:
+        cfg.provider = provider
+
+
+def _maybe_stdin(value: str) -> str:
+    if value != "-":
+        return value
+    return sys.stdin.read().strip()
 
 
 if __name__ == "__main__":

@@ -91,6 +91,34 @@ def load_session(repo: Path, session_id: str) -> Session:
     return Session.from_dict(json.loads(path.read_text(encoding="utf-8")))
 
 
+def resolve_session(repo: Path, session_id: str) -> Session:
+    needle = session_id.strip()
+    if not needle:
+        raise FileNotFoundError("session id required")
+    try:
+        return load_session(repo, needle)
+    except FileNotFoundError:
+        pass
+    matches = [item for item in list_sessions(repo) if item.id.startswith(needle)]
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise FileNotFoundError(f"session not found: {session_id}")
+    raise FileNotFoundError(f"ambiguous session id: {session_id}")
+
+
+def latest_session(repo: Path) -> Session | None:
+    items = list_sessions(repo)
+    return items[0] if items else None
+
+
+def delete_session(repo: Path, session_id: str) -> str:
+    session = resolve_session(repo, session_id)
+    path = sessions_dir(repo) / f"{session.id}.json"
+    path.unlink()
+    return session.id
+
+
 @dataclass
 class SearchHit:
     session_id: str

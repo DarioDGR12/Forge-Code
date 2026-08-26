@@ -101,3 +101,17 @@ def test_agent_auto_qa_feeds_failure(tmp_path: Path) -> None:
     assert (tmp_path / "bad.py").read_text(encoding="utf-8") == "def add(a, b):\n    return a + b\n"
     assert result.qa is not None
     assert result.qa.ok
+
+
+def test_agent_expands_mentions(tmp_path: Path) -> None:
+    (tmp_path / "note.txt").write_text("hello from disk\n", encoding="utf-8")
+    seen: list[str] = []
+
+    def fake_complete(_cfg, messages, _tools):
+        seen.append(messages[-1].content)
+        return Completion(message=Message(role="assistant", content="ok"), finish="stop")
+
+    cfg = AppConfig(provider="ollama", model="local", qa=QAConfig(auto=False))
+    Agent(tmp_path, cfg, complete_fn=fake_complete).run([], "look at @note.txt")
+    assert "hello from disk" in seen[0]
+    assert "<attached files>" in seen[0]

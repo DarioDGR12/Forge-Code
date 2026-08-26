@@ -82,3 +82,39 @@ def test_find_and_pin(tmp_path: Path, monkeypatch) -> None:
     _slash("/pin prefer ruff", tmp_path, cfg, history, session, Usage())
     mem = (tmp_path / ".forge" / "memory.md").read_text(encoding="utf-8")
     assert "ruff" in mem
+
+
+def test_new_rename_copy_and_rm(tmp_path: Path, monkeypatch) -> None:
+    from forge_code.session import list_sessions, new_session
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    session = new_session(tmp_path, provider="ollama", model="local")
+    history = [Message(role="assistant", content="hello from forge")]
+    cfg = AppConfig()
+    totals = Usage(prompt_tokens=10, completion_tokens=2)
+
+    assert _slash("/rename", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/rename auth review", tmp_path, cfg, history, session, totals) == ""
+    assert session.title == "auth review"
+
+    monkeypatch.setattr("forge_code.repl._copy_text", lambda _text: True)
+    assert _slash("/copy", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/copy", tmp_path, cfg, [], session, totals) == ""
+
+    old_id = session.id
+    assert _slash("/new hotfix", tmp_path, cfg, history, session, totals) == ""
+    assert session.id != old_id
+    assert session.title == "hotfix"
+    assert history == []
+    assert totals.prompt_tokens == 0
+    ids = {item.id for item in list_sessions(tmp_path)}
+    assert old_id in ids
+
+    assert _slash(f"/sessions rm {old_id}", tmp_path, cfg, history, session, totals) == ""
+    ids = {item.id for item in list_sessions(tmp_path)}
+    assert old_id not in ids
+
+    assert _slash(f"/sessions rm {session.id}", tmp_path, cfg, history, session, totals) == ""
+    assert session.id in {item.id for item in list_sessions(tmp_path)}
+    assert _slash("/sessions rm", tmp_path, cfg, history, session, totals) == ""

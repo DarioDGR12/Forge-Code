@@ -69,6 +69,7 @@ def test_alias_budget_share_cli(tmp_path, monkeypatch) -> None:
     assert main(["theme", "nope"]) == 2
     assert main(["find", "--repo", str(tmp_path), "nothing"]) == 0
     assert main(["sessions", "search", "--repo", str(tmp_path)]) == 2
+    assert main(["sessions", "rm", "--repo", str(tmp_path)]) == 2
     try:
         main(["find"])
     except SystemExit as exc:
@@ -167,3 +168,63 @@ def test_mcp_lists_configured(tmp_path, monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
     assert "docs" in out
     assert "npx" in out
+
+
+def test_run_model_and_stdin(tmp_path, monkeypatch) -> None:
+    import io
+
+    from forge_code.agent import TurnResult
+
+    seen: dict = {}
+
+    def fake_run(self, history, task):
+        seen["model"] = self.cfg.model
+        seen["provider"] = self.cfg.provider
+        seen["task"] = task
+        return TurnResult(text="ok")
+
+    monkeypatch.setattr("forge_code.cli.Agent.run", fake_run)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    assert main(
+        ["run", "--model", "fast", "--provider", "ollama", "inspect", "--repo", str(tmp_path)]
+    ) == 0
+    assert seen["model"] == "fast"
+    assert seen["provider"] == "ollama"
+    monkeypatch.setattr("sys.stdin", io.StringIO("from pipe\n"))
+    assert main(["run", "-", "--repo", str(tmp_path)]) == 0
+    assert seen["task"] == "from pipe"
+
+
+def test_continue_latest(tmp_path, monkeypatch) -> None:
+    from forge_code.session import new_session, save_session
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    first = new_session(tmp_path)
+    first.touch("old")
+    save_session(tmp_path, first)
+    second = new_session(tmp_path)
+    second.touch("new")
+    save_session(tmp_path, second)
+    seen: dict = {}
+
+    def fake_repl(root, cfg, session_id=None):
+        seen["id"] = session_id
+        seen["model"] = cfg.model
+        return 0
+
+    monkeypatch.setattr("forge_code.cli.start_repl", fake_repl)
+    assert main(["--continue", "--repo", str(tmp_path)]) == 0
+    assert seen["id"] == second.id
+    assert main(["-c", "--model", "local", "--repo", str(tmp_path)]) == 0
+    assert seen["model"] == "local"
+
+
+def test_sessions_rm_cli(tmp_path, monkeypatch) -> None:
+    from forge_code.session import list_sessions, new_session
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    session = new_session(tmp_path)
+    assert main(["sessions", "rm", session.id[:6], "--repo", str(tmp_path)]) == 0
+    assert list_sessions(tmp_path) == []
+

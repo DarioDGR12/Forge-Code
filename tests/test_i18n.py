@@ -14,6 +14,8 @@ def test_lang_and_spanish(monkeypatch) -> None:
     assert "pregunta" in t("ask_usage")
     assert "coincidencias" in t("no_matches")
     assert "anclado" in t("pinned")
+    assert "título" in t("rename_usage")
+    assert "sesión nueva" in t("new_session", id="abc")
 
 
 def test_lang_english_default(monkeypatch) -> None:

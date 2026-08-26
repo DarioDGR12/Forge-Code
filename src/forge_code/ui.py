@@ -146,6 +146,9 @@ def help_text() -> str:
 - `/ask <question>` — read-only Q&A
 - `/retry` — repeat last task
 - `/last` — reprint last assistant reply
+- `/copy` — copy last reply to the clipboard
+- `/new [title]` — start a fresh session
+- `/rename <title>` — name this session
 - `/find <query>` — search saved sessions
 - `/pin [note]` — append last reply (or note) to memory
 - `/alias` `/budget` `/share` `/shares`
@@ -153,15 +156,17 @@ def help_text() -> str:
 - `/commands` `/memory`
 - `/bash allow|ask|deny`
 - `/mcp` — configured MCP servers
-- `/sessions` `/resume ID` `/export [path]`
+- `/sessions` `/sessions rm ID` `/resume ID` `/export [path]`
 - `/init` `/clear` `/exit`
 - Custom: `.forge/commands/*.md` → `/name`
 - Ctrl+C stops the current turn
 
 **CLI**
 `forge run "fix the failing tests"` · `forge run --plan "…"` · `forge run -q "…"`
+`forge run --model fast --provider openai "…"` · `echo task | forge run -`
+`forge -c` · `forge --resume ID` · `forge --model local`
 `forge ask "where is auth handled?"`
-`forge find "auth"` · `forge sessions search auth`
+`forge find "auth"` · `forge sessions search auth` · `forge sessions rm ID`
 `forge ci --task "..."` · `forge undo` · `forge diff`
 `forge worktree add|list|remove NAME`
 `forge qa` · `forge auth login openai` · `forge models` · `forge sessions`

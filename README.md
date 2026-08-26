@@ -6,13 +6,13 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.9.0  
+Apache License 2.0 · v0.10.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
 $ forge
 
-  Forge  v0.9.0
+  Forge  v0.10.0
   session  a1b2c3d4e5f6
   repo     ~/src/app
   model    ollama/qwen2.5-coder:7b
@@ -161,9 +161,14 @@ Pin extra checks in `.forge/config.json`:
 | --- | --- |
 | `forge` | Interactive agent (REPL) |
 | `forge --resume ID` | Continue a saved session |
+| `forge -c` / `--continue` | Resume the latest session |
+| `forge --model NAME` | Model or alias for this invocation |
+| `forge --provider NAME` | Provider for this invocation |
 | `forge run "task"` | One shot |
 | `forge run --plan "task"` | One shot, read-only |
 | `forge run -q "task"` | One shot, no transcript |
+| `forge run --model fast "task"` | One shot with a model override |
+| `forge run -` | One shot, task from stdin |
 | `forge ask "question"` | Read-only Q&A (plan mode) |
 | `forge run "task" --json` | Machine-readable result |
 | `forge auth login <p>` | BYOK |
@@ -173,6 +178,7 @@ Pin extra checks in `.forge/config.json`:
 | `forge sessions search QUERY` | Search titles and messages |
 | `forge find QUERY` | Same as `sessions search` |
 | `forge sessions export ID` | Write a markdown transcript |
+| `forge sessions rm ID` | Delete a saved session |
 | `forge tools` | List agent tools |
 | `forge mcp` | List configured MCP servers |
 | `forge init` | Scaffold `AGENTS.md`, `.forgeignore`, skills, commands |
@@ -189,7 +195,9 @@ Pin extra checks in `.forge/config.json`:
 | `forge theme [name]` | Show or set the REPL color |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
+
+Type `@src/file.py` (optional `:10-20`) to attach file contents to the prompt.
 
 Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
@@ -269,6 +277,15 @@ Caps also accept `FORGE_MAX_COST`, `FORGE_MAX_TOKENS`, `FORGE_MAX_COST_TURN`, an
 `/share` and `forge share` write `.forge/shares/<session>.md`. `forge shares` lists them.
 
 Search past chats with `forge find "auth"` or `/find auth`. `/pin` appends the last assistant reply (or a note) to `.forge/memory.md`.
+
+`forge -c` resumes the latest session. `/new` starts a blank one; `/rename` titles it; `forge sessions rm ID` deletes it. `@path` in a prompt (REPL or `forge run`) attaches the file.
+
+```bash
+forge -c
+forge run --model local --provider ollama "fix @src/add.py"
+echo "summarize the repo" | forge run -
+# REPL: /new hotfix   /rename auth review   /copy   /sessions rm ab12
+```
 
 ## Hooks
 
