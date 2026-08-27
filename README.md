@@ -31,20 +31,46 @@ $ forge
 
 ## Install
 
-Python 3.10+.
-
-From a clone:
+Python 3.10+. **Use a virtualenv.** Debian, Ubuntu, and Pop!_OS block system `pip`
+(`externally-managed-environment`). Do not use `--break-system-packages`.
 
 ```bash
+# Debian / Ubuntu / Pop!_OS — skip if `python3 -m venv` already works
+sudo apt install -y python3-venv python3-full
+
 git clone https://github.com/DarioDGR12/Forge-Code.git
 cd Forge-Code
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install -U pip
 pip install -e ".[dev]"
+
+which forge
+# must be …/Forge-Code/.venv/bin/forge
+
+forge --version
+# forge 0.17.0
+
 forge
 ```
 
-`forge` opens the **OPEN FORGE** window. Arrow keys (or a number) to select:
+From a clone you can also run `./install.sh` (creates `.venv` and prints the binary path).
+
+**Every new terminal**, activate first or call the binary by path:
+
+```bash
+source ~/Forge-Code/.venv/bin/activate    # then: forge
+~/Forge-Code/.venv/bin/forge              # no activate
+~/Forge-Code/.venv/bin/python -m forge_code
+```
+
+`forge --version` must print `forge 0.17.0`. If you see `forge vibe`, “marketplace”,
+or `unrecognized arguments: menu` / `context`, that is a **different program** named
+`forge`. `which forge` shows which one. Activate the venv (or use the paths above).
+
+### OPEN FORGE (chats, providers, help)
+
+`forge` or `forge menu` opens the window. Arrow keys or a number, then Enter. `q` goes back.
 
 1. **resume** → last chat (only if you already have one)
 2. **providers** → pick Mistral / OpenAI / DeepSeek / Kimi / … → paste the API key → chat starts
@@ -52,24 +78,14 @@ forge
 4. **models** → switch model
 5. **config** → qa / bash / theme / quiet / language
 6. **contributions** → recommend an improvement (opens mail to dariopro.1212@gmail.com — hit Send) or open the GitHub repo to contribute code
-7. **help** → about, commands, doctor (API / Ollama / llama.cpp), language
+7. **help** → about, commands, doctor (API / Ollama / llama.cpp / cwd / context), language
 8. **forge** → open chat (if a key is already saved)
 
 First run without a key prints a short setup and the provider list. Ollama needs no key.
 
-Skip the menu: `forge chat` or `forge --repl`.
+Skip the menu: `forge chat`, `forge --repl`, `forge --resume ID`, `forge -c`, or `FORGE_MENU=0`.
 
-Spanish: **help** → language → `es`, or `forge set lang es` (still honors `FORGE_LANG` / `LANG=es_*`).
-
-Or:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/DarioDGR12/Forge-Code/main/install.sh | bash
-```
-
-`forge` with no arguments opens the OPEN FORGE menu in the terminal.
-
-Spanish prompts: **config** or **help** → language, `forge set lang es`, or `export FORGE_LANG=es` (also honors `LANG=es_*` for `/bash ask`).
+Spanish: **help** → language → `es`, or `forge set lang es` (`FORGE_LANG` / `LANG=es_*` still win).
 
 ## Bring your own key
 
@@ -196,6 +212,7 @@ Pin extra checks in `.forge/config.json`:
 | Command | What it does |
 | --- | --- |
 | `forge` | OPEN FORGE menu (resume, providers, chats, models, config, contributions, help) |
+| `forge menu` | Same as bare `forge` |
 | `forge chat` | Skip the menu, open the chat |
 | `forge --resume ID` | Continue a saved session |
 | `forge -c` / `--continue` | Resume the latest session |
@@ -223,12 +240,12 @@ Pin extra checks in `.forge/config.json`:
 | `forge tools` | List agent tools |
 | `forge mcp` | List configured MCP servers |
 | `forge init` | Scaffold `AGENTS.md`, `.forgeignore`, skills, commands |
-| `forge doctor` | Health check |
+| `forge doctor` | Health check (provider, API, Ollama, cwd, context, last bash) |
 | `forge undo` | Revert the last agent edits |
 | `forge diff` | Last agent edits or current git diff |
 | `forge commands` | List `.forge/commands/*.md` slash commands |
 | `forge memory` | Print `.forge/memory.md` |
-| `forge context` | Show `.forge/context.md` (stack, tests, layout) |
+| `forge context` | Show `.forge/context.md` (stack, tests, layout, scripts, entry points) |
 | `forge context --refresh` | Rescan the workspace and rewrite context |
 | `forge terminal` | Print recent shell log (`.forge/terminal.md`) |
 | `forge worktree add\|list\|remove` | Isolated git worktrees under `.worktrees/` |
@@ -426,6 +443,8 @@ Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can 
 ## Quick demo (no API)
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
 forge qa --repo examples/broken-add    # red on purpose

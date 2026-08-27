@@ -10,14 +10,36 @@ if ! command -v "$PYTHON" >/dev/null 2>&1; then
 fi
 
 if [[ -f pyproject.toml ]] && grep -q 'name = "forge-code"' pyproject.toml; then
-  "$PYTHON" -m pip install --user -e .
+  ROOT="$(pwd)"
 else
-  DEST="${FORGE_HOME:-$HOME/.local/share/forge-code}"
-  if [[ ! -d "$DEST/.git" ]]; then
-    git clone --depth 1 https://github.com/DarioDGR12/Forge-Code.git "$DEST"
+  ROOT="${FORGE_HOME:-$HOME/.local/share/forge-code}"
+  if [[ ! -d "$ROOT/.git" ]]; then
+    git clone --depth 1 https://github.com/DarioDGR12/Forge-Code.git "$ROOT"
   fi
-  "$PYTHON" -m pip install --user -e "$DEST"
 fi
 
+if ! "$PYTHON" -m venv --help >/dev/null 2>&1; then
+  echo "python3-venv is required. On Debian/Ubuntu/Pop!_OS:" >&2
+  echo "  sudo apt install -y python3-venv python3-full" >&2
+  exit 1
+fi
+
+VENV="$ROOT/.venv"
+"$PYTHON" -m venv "$VENV"
+"$VENV/bin/python" -m pip install -U pip
+"$VENV/bin/pip" install -e "$ROOT"
+
+BIN="$VENV/bin/forge"
 echo
-echo "Installed. Add ~/.local/bin to PATH if needed, then run: forge --help"
+echo "Installed. This CLI is: $BIN"
+echo
+echo "  source $VENV/bin/activate"
+echo "  forge --version    # must print forge 0.17.0"
+echo "  forge              # OPEN FORGE menu"
+echo
+echo "Without activate:  $BIN"
+echo "Unambiguous:       $VENV/bin/python -m forge_code"
+echo
+echo "If forge --version is not forge 0.17.0 (forge vibe, marketplace,"
+echo "unrecognized arguments: menu), another program named forge is on PATH."
+echo "which forge  shows which one. Use the venv binary above."
