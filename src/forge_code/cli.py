@@ -182,8 +182,8 @@ def main(argv: list[str] | None = None) -> int:
         if not sid and getattr(args, "continue_last", False):
             latest = latest_session(root)
             sid = latest.id if latest else None
-        skip_menu = bool(sid or getattr(args, "repl", False) or not _want_menu())
-        if skip_menu:
+        skip_menu = bool(sid or getattr(args, "repl", False))
+        if skip_menu or os.environ.get("FORGE_MENU", "1").lower() in {"0", "off", "false", "no"}:
             return start_repl(root, cfg, session_id=sid)
         return start_menu(root, cfg)
     if args.cmd == "run":
@@ -654,12 +654,6 @@ def _cmd_find(root: Path, query: str) -> int:
         [(hit.session_id, hit.role, hit.title, hit.snippet) for hit in hits]
     )
     return 0
-
-
-def _want_menu() -> bool:
-    if os.environ.get("FORGE_MENU", "1").lower() in {"0", "off", "false", "no"}:
-        return False
-    return bool(sys.stdin.isatty() and sys.stdout.isatty())
 
 
 def _apply_overrides(cfg, args: argparse.Namespace) -> None:

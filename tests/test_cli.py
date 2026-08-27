@@ -93,6 +93,30 @@ def test_alias_budget_share_cli(tmp_path, monkeypatch) -> None:
         raise AssertionError("find without query should exit")
 
 
+def test_bare_forge_opens_menu(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    hit: dict = {}
+
+    def fake_menu(root, cfg):
+        hit["menu"] = True
+        return 0
+
+    def fake_repl(root, cfg, session_id=None):
+        hit["repl"] = session_id
+        return 0
+
+    monkeypatch.setattr("forge_code.cli.start_menu", fake_menu)
+    monkeypatch.setattr("forge_code.cli.start_repl", fake_repl)
+    assert main(["--repo", str(tmp_path)]) == 0
+    assert hit == {"menu": True}
+    assert main(["--repl", "--repo", str(tmp_path)]) == 0
+    assert hit.get("repl") is None
+    monkeypatch.setenv("FORGE_MENU", "0")
+    hit.clear()
+    assert main(["--repo", str(tmp_path)]) == 0
+    assert hit == {"repl": None}
+
+
 def test_ask_and_worktree_cli(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     try:

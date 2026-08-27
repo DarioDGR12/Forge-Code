@@ -12,6 +12,7 @@ from pathlib import Path
 from rich.panel import Panel
 from rich.text import Text
 
+from forge_code import __version__
 from forge_code.auth import apply_api_key, apply_provider, needs_api_key
 from forge_code.config import AppConfig, save_config
 from forge_code.i18n import t
@@ -209,8 +210,8 @@ def _draw(title: str, options: list[str], index: int, extra: str, numbered: bool
     lines.append("")
     lines.append(f"[dim]{t('menu_hint')}[/]")
     body = Text.from_markup("\n".join(lines))
-    header = Text.assemble((BRAND, f"bold {theme}"), ("\n", ""), (title, "dim"))
-    console.print(Panel(body, title=header, border_style=theme, padding=(1, 3)))
+    header = f"{BRAND}  v{__version__}"
+    console.print(Panel(body, title=header, subtitle=title, border_style=theme, padding=(1, 3)))
 
 
 def _choose_numbered(title: str, options: list[str], extra: str) -> int | None:
