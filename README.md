@@ -1,33 +1,32 @@
-# Forge
+<p align="center">
+  <img src="docs/assets/openforge-logo.gif" width="168" alt="Open Forge">
+</p>
 
-**An open-source AI coding agent for the terminal.**
+<h1 align="center">OPEN FORGE</h1>
 
-Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box.
-After every edit, Forge runs **integrated QA** and feeds failures back to the
-model until the suite is green.
+<p align="center">
+  <strong>An open-source AI coding agent for the terminal.</strong><br>
+  Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box.<br>
+  After every edit, Forge runs <strong>integrated QA</strong> until the suite is green.
+</p>
 
-Apache License 2.0 · v0.17.0  
-Not affiliated with OpenCode or Anthropic.
+<p align="center">
+  <img src="docs/assets/openforge-banner.jpg" width="720" alt="Open Forge — terminal coding agent">
+</p>
 
-```
-$ forge
+<p align="center">
+  <img alt="Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-22d3ee?style=flat-square">
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-0ea5e9?style=flat-square">
+  <img alt="v0.17.0" src="https://img.shields.io/badge/version-0.17.0-f59e0b?style=flat-square">
+</p>
 
-┌──────────── O P E N   F O R G E ────────────┐
-│  openai / gpt-4.1-mini    no key            │
-│                                             │
-│  › resume  a1b2c3d4  last task              │
-│    providers                                │
-│    chats                                    │
-│    models                                   │
-│    config                                   │
-│    contributions                            │
-│    help                                     │
-│    forge                                    │
-│    quit                                     │
-│                                             │
-│  ↑↓ enter · number + enter · q back         │
-└─────────────────────────────────────────────┘
-```
+<p align="center">Not affiliated with OpenCode or Anthropic.</p>
+
+<p align="center">
+  <img src="docs/assets/openforge-menu.gif" width="640" alt="OPEN FORGE home menu">
+</p>
+
+`forge` or `forge menu` opens that window. Arrow keys or a number, then Enter. `q` goes back.
 
 ## Install
 
@@ -69,6 +68,10 @@ or `unrecognized arguments: menu` / `context`, that is a **different program** n
 `forge`. `which forge` shows which one. Activate the venv (or use the paths above).
 
 ### OPEN FORGE (chats, providers, help)
+
+<p align="center">
+  <img src="docs/assets/openforge-chats.gif" width="640" alt="OPEN FORGE chats: new, search, open, rename">
+</p>
 
 `forge` or `forge menu` opens the window. Arrow keys or a number, then Enter. `q` goes back.
 
@@ -266,6 +269,10 @@ Type `@src/file.py` (optional `:10-20`) to attach file contents to the prompt.
 Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
 ## Tools
+
+<p align="center">
+  <img src="docs/assets/openforge-agent.gif" width="640" alt="Forge agent: outline, edit, integrated QA">
+</p>
 
 `read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `outline` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore` `memory_read` `memory_write` `project_map` `terminal_read`
 
