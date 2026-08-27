@@ -27,6 +27,7 @@ node_modules/
 __pycache__/
 .env
 .worktrees/
+files/
 """
 
 SKILL_PYTHON = """# Python

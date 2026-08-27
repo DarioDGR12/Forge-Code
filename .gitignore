@@ -11,5 +11,6 @@ build/
 htmlcov/
 .forge/
 *.diff
+files/
 report.json
 .DS_Store

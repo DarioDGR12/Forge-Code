@@ -46,6 +46,8 @@ def test_agent_edits_then_stops(tmp_path: Path) -> None:
     assert "Updated" in result.text
     assert (tmp_path / "note.txt").read_text(encoding="utf-8") == "hola\n"
     assert "note.txt" in result.writes
+    assert (tmp_path / "files" / "note.txt").is_file()
+    assert (tmp_path / "files" / "note.txt").read_text(encoding="utf-8") == "hola\n"
 
 
 def test_agent_auto_qa_feeds_failure(tmp_path: Path) -> None:

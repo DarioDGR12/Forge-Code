@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -74,6 +76,27 @@ def usage_line(model: str, usage: Usage) -> None:
     if usage.total <= 0:
         return
     console.print(f"  [dim]{format_usage(model, usage)}[/]")
+
+
+def files_panel(rels: list[str], folder: str) -> None:
+    if not rels:
+        return
+    console.print()
+    console.print(f"[bold cyan]files[/]  {folder}")
+    console.print(f"[dim]/copy copies the last file · open {folder} in Files / Finder[/]")
+    for rel in rels:
+        console.print(f"  [cyan]▸[/] {rel}")
+
+
+def show_copyable(root: Path, rels: list[str]) -> None:
+    """Print each written file as a fenced block so it is easy to copy."""
+    from forge_code.files import fence_blocks
+
+    body = fence_blocks(root, rels)
+    if not body:
+        return
+    console.print()
+    speak(body)
 
 
 def error(message: str) -> None:
@@ -158,7 +181,8 @@ def help_text() -> str:
 - `/ask <question>` — read-only Q&A
 - `/retry` — repeat last task
 - `/last` — reprint last assistant reply
-- `/copy` — copy last reply to the clipboard
+- `/copy [path]` — copy last written file (or last reply) to the clipboard
+- `/files` — show last written files (also saved under `files/`)
 - `/new [title]` — start a fresh session
 - `/rename <title>` — name this session
 - `/find <query>` — search saved sessions
@@ -183,7 +207,7 @@ def help_text() -> str:
 `forge ci --task "..."` · `forge undo` · `forge diff`
 `forge worktree add|list|remove NAME`
 `forge qa` · `forge set provider openai` · `forge models` · `forge sessions`
-`forge mcp` · `forge commands` · `forge memory` · `forge context` · `forge terminal` · `forge doctor`
+`forge mcp` · `forge commands` · `forge memory` · `forge context` · `forge terminal` · `forge files` · `forge doctor`
 `forge alias` · `forge budget` · `forge share` · `forge shares` · `forge theme`
 `forge contribute` · `forge set lang es`
 """.strip()

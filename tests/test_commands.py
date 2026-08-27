@@ -17,6 +17,7 @@ def test_load_and_expand_commands(tmp_path: Path) -> None:
     (folder / "pin.md").write_text("should be ignored\n", encoding="utf-8")
     (folder / "new.md").write_text("should be ignored\n", encoding="utf-8")
     (folder / "copy.md").write_text("should be ignored\n", encoding="utf-8")
+    (folder / "files.md").write_text("should be ignored\n", encoding="utf-8")
     (folder / "set.md").write_text("should be ignored\n", encoding="utf-8")
     (folder / "api.md").write_text("should be ignored\n", encoding="utf-8")
     (folder / "chat.md").write_text("should be ignored\n", encoding="utf-8")

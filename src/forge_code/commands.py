@@ -47,6 +47,7 @@ RESERVED = {
     "new",
     "rename",
     "copy",
+    "files",
     "set",
     "api",
     "providers",

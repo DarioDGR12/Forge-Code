@@ -37,6 +37,7 @@ from forge_code.ui import (
     banner,
     console,
     error,
+    files_panel,
     help_text,
     info,
     ok,
@@ -44,6 +45,7 @@ from forge_code.ui import (
     qa_panel,
     search_table,
     session_table,
+    show_copyable,
     speak,
     tool_line,
     tool_result,
@@ -152,6 +154,13 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
             info(t("budget_hit"))
         if result.qa is not None:
             qa_panel(result.qa)
+        if result.writes:
+            from forge_code.files import files_dir, save_turn
+
+            rels = save_turn(root, result.writes) or [p for p in result.writes if p]
+            files_panel(rels, str(files_dir(root)))
+            if not cfg.quiet:
+                show_copyable(root, rels)
         usage_line(cfg.resolved_model(), result.usage)
     return 0
 
@@ -223,6 +232,7 @@ def _enable_readline(root: Path) -> None:
         "/new",
         "/rename ",
         "/copy",
+        "/files",
         "/commands",
         "/memory",
         "/context",
@@ -443,19 +453,34 @@ def _slash(
                 return ""
         info(t("no_reply"))
         return ""
+    if cmd == "files":
+        from forge_code.files import files_dir, load_last
+
+        rels = load_last(root)
+        if not rels:
+            info(t("empty_files"))
+            return ""
+        files_panel(rels, str(files_dir(root)))
+        show_copyable(root, rels)
+        return ""
     if cmd == "copy":
-        text = ""
-        for message in reversed(history):
-            if message.role == "assistant" and message.content.strip():
-                text = message.content
-                break
+        from forge_code.files import read_for_copy
+
+        path, body = read_for_copy(root, arg or None)
+        text = body
+        if not text:
+            for message in reversed(history):
+                if message.role == "assistant" and message.content.strip():
+                    text = message.content
+                    path = ""
+                    break
         if not text:
             info(t("no_reply"))
             return ""
         if _copy_text(text):
-            ok(t("copied"))
+            ok(t("copied_file", path=path) if path else t("copied"))
         else:
-            speak(text)
+            speak(f"```\n{text}\n```" if path else text)
             info(t("no_clipboard"))
         return ""
     if cmd == "new":
@@ -751,26 +776,6 @@ def _print_providers(cfg: AppConfig) -> None:
 
 
 def _copy_text(text: str) -> bool:
-    import shutil
-    import subprocess
+    from forge_code.files import copy_to_clipboard
 
-    for name, extra in (
-        ("wl-copy", []),
-        ("xclip", ["-selection", "clipboard"]),
-        ("xsel", ["--clipboard", "--input"]),
-        ("pbcopy", []),
-    ):
-        binary = shutil.which(name)
-        if not binary:
-            continue
-        try:
-            subprocess.run(
-                [binary, *extra],
-                input=text.encode("utf-8"),
-                check=True,
-                timeout=3,
-            )
-            return True
-        except (OSError, subprocess.SubprocessError):
-            continue
-    return False
+    return copy_to_clipboard(text)

@@ -11,7 +11,7 @@ from typing import Any
 from forge_code.ignore import IgnoreMatcher
 from forge_code.tools.base import jail
 
-SKIP = {".git", ".venv", "__pycache__", "node_modules", ".forge", "dist", "build"}
+SKIP = {".git", ".venv", "__pycache__", "node_modules", ".forge", "files", "dist", "build"}
 
 
 def glob_files(root: Path, args: dict[str, Any]) -> str:

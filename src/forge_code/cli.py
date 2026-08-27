@@ -129,6 +129,8 @@ def main(argv: list[str] | None = None) -> int:
     ctx_p = sub.add_parser("context", help="show or refresh .forge/context.md", parents=[common])
     ctx_p.add_argument("--refresh", action="store_true", help="rescan the workspace")
     sub.add_parser("terminal", help="print .forge/terminal.md", parents=[common])
+    files_p = sub.add_parser("files", help="show last written files (copy-friendly)", parents=[common])
+    files_p.add_argument("--copy", action="store_true", help="copy the last file to the clipboard")
 
     worktree = sub.add_parser("worktree", help="isolated git worktrees", parents=[common])
     worktree.add_argument("action", choices=["add", "list", "remove"])
@@ -263,6 +265,8 @@ def main(argv: list[str] | None = None) -> int:
         text = load_terminal(root)
         console.print(text or "(empty terminal log)")
         return 0
+    if args.cmd == "files":
+        return _cmd_files(root, copy=bool(getattr(args, "copy", False)))
     if args.cmd == "worktree":
         return _cmd_worktree(root, args)
     if args.cmd == "alias":
@@ -335,6 +339,13 @@ def _cmd_run(root: Path, cfg, task: str, as_json: bool, plan: bool = False, quie
                 speak(result.text)
             if result.qa is not None:
                 qa_panel(result.qa)
+            if result.writes:
+                from forge_code.files import files_dir, save_turn
+                from forge_code.ui import files_panel, show_copyable
+
+                rels = save_turn(root, result.writes) or [p for p in result.writes if p]
+                files_panel(rels, str(files_dir(root)))
+                show_copyable(root, rels)
     if result.interrupted:
         return 130
     return 0 if (result.qa is None or result.qa.ok) else 1
@@ -558,6 +569,25 @@ def _cmd_context(root: Path, refresh: bool = False) -> int:
         save_context(root)
     text = ensure_context(root)
     console.print(text or "(empty context)")
+    return 0
+
+
+def _cmd_files(root: Path, copy: bool = False) -> int:
+    from forge_code.files import copy_to_clipboard, files_dir, load_last, read_for_copy
+    from forge_code.ui import files_panel, show_copyable
+
+    rels = load_last(root)
+    if not rels:
+        console.print(t("empty_files"))
+        return 0
+    files_panel(rels, str(files_dir(root)))
+    show_copyable(root, rels)
+    if copy:
+        path, text = read_for_copy(root)
+        if text and copy_to_clipboard(text):
+            ok(t("copied_file", path=path))
+        elif text:
+            info(t("no_clipboard"))
     return 0
 
 

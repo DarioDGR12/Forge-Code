@@ -12,6 +12,7 @@ from forge_code.compact import compact_messages, estimate_chars
 from forge_code.config import AppConfig
 from forge_code.diagnostics import format_diagnostics, run_diagnostics
 from forge_code.diffview import preview_writes
+from forge_code.files import save_turn
 from forge_code.hooks import run_hook
 from forge_code.interrupt import CancelFlag, CancelledError
 from forge_code.mcp import load_mcp_tools
@@ -220,6 +221,8 @@ class Agent:
                 last_text = last_text or "Stopped: max tool steps reached."
         except CancelledError:
             run_hook(self.root, "post_turn", {"FORGE_TASK": user_text[:200]})
+            if writes:
+                save_turn(self.root, writes)
             history.clear()
             history.extend(messages)
             return TurnResult(
@@ -234,6 +237,8 @@ class Agent:
             )
 
         run_hook(self.root, "post_turn", {"FORGE_TASK": user_text[:200]})
+        if writes:
+            save_turn(self.root, writes)
         history.clear()
         history.extend(messages)
         return TurnResult(

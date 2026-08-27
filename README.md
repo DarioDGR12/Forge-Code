@@ -1,30 +1,25 @@
-<p align="center">
-  <img src="docs/assets/openforge-logo.gif" width="168" alt="Open Forge">
-</p>
+<div align="center">
 
-<h1 align="center">OPEN FORGE</h1>
+<img src="docs/assets/openforge-logo.gif" width="168" alt="Open Forge logo">
 
-<p align="center">
-  <strong>An open-source AI coding agent for the terminal.</strong><br>
-  Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box.<br>
-  After every edit, Forge runs <strong>integrated QA</strong> until the suite is green.
-</p>
+# OPEN FORGE
 
-<p align="center">
-  <img src="docs/assets/openforge-banner.jpg" width="720" alt="Open Forge — terminal coding agent">
-</p>
+**An open-source AI coding agent for the terminal.**
 
-<p align="center">
-  <img alt="Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-22d3ee?style=flat-square">
-  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-0ea5e9?style=flat-square">
-  <img alt="v0.17.0" src="https://img.shields.io/badge/version-0.17.0-f59e0b?style=flat-square">
-</p>
+Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box.
+After every edit, Forge runs **integrated QA** until the suite is green.
 
-<p align="center">Not affiliated with OpenCode or Anthropic.</p>
+<img src="docs/assets/openforge-banner.jpg" width="720" alt="Open Forge — terminal coding agent">
 
-<p align="center">
-  <img src="docs/assets/openforge-menu.gif" width="640" alt="OPEN FORGE home menu">
-</p>
+![Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-22d3ee?style=flat-square)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0ea5e9?style=flat-square)
+![v0.17.0](https://img.shields.io/badge/version-0.17.0-f59e0b?style=flat-square)
+
+Not affiliated with OpenCode or Anthropic.
+
+![OPEN FORGE home menu](docs/assets/openforge-menu.gif)
+
+</div>
 
 `forge` or `forge menu` opens that window. Arrow keys or a number, then Enter. `q` goes back.
 
@@ -69,9 +64,11 @@ or `unrecognized arguments: menu` / `context`, that is a **different program** n
 
 ### OPEN FORGE (chats, providers, help)
 
-<p align="center">
-  <img src="docs/assets/openforge-chats.gif" width="640" alt="OPEN FORGE chats: new, search, open, rename">
-</p>
+<div align="center">
+
+![OPEN FORGE chats](docs/assets/openforge-chats.gif)
+
+</div>
 
 `forge` or `forge menu` opens the window. Arrow keys or a number, then Enter. `q` goes back.
 
@@ -251,6 +248,7 @@ Pin extra checks in `.forge/config.json`:
 | `forge context` | Show `.forge/context.md` (stack, tests, layout, scripts, entry points) |
 | `forge context --refresh` | Rescan the workspace and rewrite context |
 | `forge terminal` | Print recent shell log (`.forge/terminal.md`) |
+| `forge files` | Last written files (copy-friendly). `--copy` puts the last one on the clipboard |
 | `forge worktree add\|list\|remove` | Isolated git worktrees under `.worktrees/` |
 | `forge alias` | List / set / remove model aliases |
 | `forge budget` | Show the session cost/token cap |
@@ -262,7 +260,7 @@ Pin extra checks in `.forge/config.json`:
 | `forge contribute code` | Open the GitHub repo |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/set lang` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/context` `/terminal` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/set lang` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/copy path` `/files` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/context` `/terminal` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
 
 Type `@src/file.py` (optional `:10-20`) to attach file contents to the prompt.
 
@@ -270,9 +268,11 @@ Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
 ## Tools
 
-<p align="center">
-  <img src="docs/assets/openforge-agent.gif" width="640" alt="Forge agent: outline, edit, integrated QA">
-</p>
+<div align="center">
+
+![Forge agent turn](docs/assets/openforge-agent.gif)
+
+</div>
 
 `read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `outline` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore` `memory_read` `memory_write` `project_map` `terminal_read`
 
@@ -288,7 +288,7 @@ Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
 The system prompt loads `.forge/context.md`, nested `AGENTS.md` / `FORGE.md`, the shell cwd / last exit, and the last shell snippets every turn. `forge context --refresh` or `/context refresh` rebuilds the map. Secrets in the terminal log are redacted.
 
-After writes, the REPL shows a unified diff of the turn. `/diff` and `forge diff` replay it (or fall back to `git diff`).
+After writes, Forge prints the new code in a copy-friendly block, saves a copy under `files/` (open that folder in Files / Finder), and `/copy` puts the last file on the clipboard. `/diff` and `forge diff` replay the unified diff.
 
 ## Custom commands
 
@@ -442,6 +442,7 @@ Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can 
 | `.forge/memory.md` | Persistent notes (`memory_write`) |
 | `.forge/context.md` | Generated project map (`project_map`) |
 | `.forge/terminal.md` | Recent shell log (`bash` / `terminal_read`) |
+| `files/` | Copies of the last turn’s written files (`/copy`, `/files`, `forge files`) |
 | `.forge/shell.json` | Persisted bash cwd |
 | `.forge/shares/` | Markdown exports from `/share` |
 | `.worktrees/` | Isolated checkouts from `forge worktree add` |

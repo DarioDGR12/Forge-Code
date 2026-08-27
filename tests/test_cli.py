@@ -309,4 +309,5 @@ def test_context_and_terminal_cli(tmp_path) -> None:
     assert (tmp_path / ".forge" / "context.md").is_file()
     assert main(["context", "--refresh", "--repo", str(tmp_path)]) == 0
     assert main(["terminal", "--repo", str(tmp_path)]) == 0
+    assert main(["files", "--repo", str(tmp_path)]) == 0
 

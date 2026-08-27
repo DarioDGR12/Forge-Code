@@ -126,6 +126,12 @@ def test_new_rename_copy_and_rm(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr("forge_code.repl._copy_text", lambda _text: True)
     assert _slash("/copy", tmp_path, cfg, history, session, totals) == ""
     assert _slash("/copy", tmp_path, cfg, [], session, totals) == ""
+    (tmp_path / "note.py").write_text("x = 1\n", encoding="utf-8")
+    from forge_code.files import save_turn
+
+    save_turn(tmp_path, ["note.py"])
+    assert _slash("/files", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/copy note.py", tmp_path, cfg, history, session, totals) == ""
 
     old_id = session.id
     assert _slash("/new hotfix", tmp_path, cfg, history, session, totals) == ""
