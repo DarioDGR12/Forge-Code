@@ -6,7 +6,7 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.16.0  
+Apache License 2.0 · v0.17.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
@@ -250,17 +250,19 @@ Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
 ## Tools
 
-`read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore` `memory_read` `memory_write` `project_map` `terminal_read`
+`read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `outline` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore` `memory_read` `memory_write` `project_map` `terminal_read`
 
 - **explore** — read-only nested search (plan-mode tools only; cannot recurse)
 - **fetch_url** — public documentation, 80 KB cap, HTML stripped
 - **git_commit** — `git add -- <paths>` then `git commit -m`
 - **memory_*** — append-only facts in `.forge/memory.md` (no secrets)
-- **project_map** — scan the repo and write `.forge/context.md` (stack, tests, layout, git)
+- **outline** — list `def` / `class` / `fn` / `func` / `function` in a file without dumping it
+- **grep** — optional `path` jails the search to one file or directory
+- **project_map** — scan the repo and write `.forge/context.md` (stack, tests, layout, git, scripts, entry points). Auto-refreshes when `pyproject.toml` / `package.json` / etc. change
 - **terminal_read** — recent `bash` commands and output in `.forge/terminal.md`
-- **bash** — `cwd` is workspace-jailed and persists (`cd src` sticks for the next call)
+- **bash** — `cwd` is workspace-jailed and persists; `cd src && ls` actually runs in `src`
 
-The system prompt loads `.forge/context.md` and the last shell snippets every turn. `forge context --refresh` or `/context refresh` rebuilds the map. Secrets in the terminal log are redacted.
+The system prompt loads `.forge/context.md`, nested `AGENTS.md` / `FORGE.md`, the shell cwd / last exit, and the last shell snippets every turn. `forge context --refresh` or `/context refresh` rebuilds the map. Secrets in the terminal log are redacted.
 
 After writes, the REPL shows a unified diff of the turn. `/diff` and `forge diff` replay it (or fall back to `git diff`).
 
@@ -407,7 +409,7 @@ Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can 
 
 | File | Purpose |
 | --- | --- |
-| `AGENTS.md` / `FORGE.md` | Instructions injected every turn |
+| `AGENTS.md` / `FORGE.md` | Instructions injected every turn (root and nested, capped) |
 | `.forgeignore` | Hide paths from glob/grep/tree |
 | `.forge/config.json` | Repo overlay (provider, QA, permissions, MCP) |
 | `.forge/hooks/` | `pre_edit` / `post_edit` / `post_turn` scripts |

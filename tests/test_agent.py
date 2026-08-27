@@ -115,3 +115,42 @@ def test_agent_expands_mentions(tmp_path: Path) -> None:
     Agent(tmp_path, cfg, complete_fn=fake_complete).run([], "look at @note.txt")
     assert "hello from disk" in seen[0]
     assert "<attached files>" in seen[0]
+
+
+def test_agent_refreshes_context_on_marker_write(tmp_path: Path) -> None:
+    forge = tmp_path / ".forge"
+    forge.mkdir()
+    (forge / "context.md").write_text("# old\n", encoding="utf-8")
+    calls = iter(
+        [
+            Completion(
+                message=Message(
+                    role="assistant",
+                    tool_calls=[
+                        ToolCall(
+                            id="1",
+                            name="write_file",
+                            arguments={
+                                "path": "pyproject.toml",
+                                "content": "[project]\nname='demo'\nversion='0'\n",
+                            },
+                        )
+                    ],
+                ),
+                finish="tool",
+            ),
+            Completion(
+                message=Message(role="assistant", content="mapped"),
+                finish="stop",
+            ),
+        ]
+    )
+
+    def fake_complete(_cfg, _messages, _tools):
+        return next(calls)
+
+    cfg = AppConfig(provider="ollama", model="local", qa=QAConfig(auto=False))
+    Agent(tmp_path, cfg, complete_fn=fake_complete).run([], "add pyproject")
+    text = (forge / "context.md").read_text(encoding="utf-8")
+    assert "python" in text
+    assert "# old" not in text

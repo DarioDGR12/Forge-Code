@@ -18,6 +18,7 @@ from forge_code.tools.fetch import fetch_url
 from forge_code.tools.git import git_commit, git_diff, git_log, git_status
 from forge_code.tools.memory import memory_read, memory_write
 from forge_code.tools.patch import apply_patch
+from forge_code.tools.outline import outline_file
 from forge_code.tools.search import glob_files, grep_files
 from forge_code.tools.terminal import terminal_read
 from forge_code.tools.todo import read_todo, update_todo
@@ -26,7 +27,7 @@ from forge_code.project import project_map
 
 STR = {"type": "string"}
 WRITE_TOOLS = {"write_file", "edit_file", "apply_patch"}
-READ_TOOLS = {"read_file"}
+READ_TOOLS = {"read_file", "outline"}
 
 
 class ToolRegistry:
@@ -193,17 +194,31 @@ def _builtin_tools() -> list[ToolSpec]:
         ),
         ToolSpec(
             name="grep",
-            description="Search file contents with a regex.",
+            description="Search file contents with a regex. Optional path jails the search to a file or directory.",
             parameters={
                 "type": "object",
-                "properties": {"pattern": STR, "glob": STR},
+                "properties": {
+                    "pattern": STR,
+                    "glob": STR,
+                    "path": {**STR, "description": "Workspace-relative file or directory"},
+                },
                 "required": ["pattern"],
             },
             fn=grep_files,
         ),
         ToolSpec(
+            name="outline",
+            description="List symbols (def/class/fn/func/function) in a file without reading the whole buffer.",
+            parameters={
+                "type": "object",
+                "properties": {"path": {**STR, "description": "Workspace-relative file"}},
+                "required": ["path"],
+            },
+            fn=outline_file,
+        ),
+        ToolSpec(
             name="bash",
-            description="Run a shell command in the workspace. Prefer QA for tests.",
+            description="Run a shell command in the workspace. cwd persists; `cd dir && cmd` runs in dir. Prefer QA for tests.",
             parameters={
                 "type": "object",
                 "properties": {
@@ -311,7 +326,7 @@ def _builtin_tools() -> list[ToolSpec]:
         ),
         ToolSpec(
             name="project_map",
-            description="Scan the workspace and write .forge/context.md (stack, tests, layout, git).",
+            description="Scan the workspace and write .forge/context.md (stack, tests, layout, git, scripts).",
             parameters={"type": "object", "properties": {}},
             fn=project_map,
             writes=True,

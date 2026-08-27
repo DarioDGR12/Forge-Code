@@ -52,7 +52,37 @@ def test_grep_and_glob(tmp_path: Path) -> None:
     assert "a.py:1" in hits
 
 
+def test_grep_path_and_outline(tmp_path: Path) -> None:
+    tools = default_registry()
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.py").write_text(
+        "class Foo:\n    def bar(self):\n        return 1\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "other.py").write_text("def hello():\n    return 2\n", encoding="utf-8")
+    hits = tools.execute(tmp_path, "grep", {"pattern": "def hello", "path": "src"})
+    assert "other.py" not in hits
+    scoped = tools.execute(tmp_path, "grep", {"pattern": "def bar", "path": "src"})
+    assert "src/a.py" in scoped
+    file_hits = tools.execute(tmp_path, "grep", {"pattern": "class Foo", "path": "src/a.py"})
+    assert "src/a.py:1" in file_hits
+    out = tools.execute(tmp_path, "outline", {"path": "src/a.py"})
+    assert "class Foo" in out
+    assert "def bar" in out
+    blocked = tools.execute(tmp_path, "outline", {"path": "../secret.py"})
+    assert blocked.startswith("error:")
+
+
 def test_v04_tools_are_registered() -> None:
     names = default_registry().names()
-    for name in ("git_commit", "fetch_url", "explore", "memory_read", "memory_write", "project_map", "terminal_read"):
+    for name in (
+        "git_commit",
+        "fetch_url",
+        "explore",
+        "memory_read",
+        "memory_write",
+        "project_map",
+        "terminal_read",
+        "outline",
+    ):
         assert name in names

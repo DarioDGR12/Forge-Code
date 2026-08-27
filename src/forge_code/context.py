@@ -40,6 +40,13 @@ def git_summary(root: Path) -> str:
     return "\n".join(lines)
 
 
+def git_recent(root: Path, count: int = 5) -> list[str]:
+    text = _git(root, ["log", f"-{max(1, min(count, 12))}", "--oneline"])
+    if not text:
+        return []
+    return [line for line in text.splitlines() if line.strip()]
+
+
 def _rev_parse(root: Path) -> bool:
     return bool(_git(root, ["rev-parse", "--is-inside-work-tree"]))
 

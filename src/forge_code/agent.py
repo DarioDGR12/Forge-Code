@@ -18,6 +18,7 @@ from forge_code.mcp import load_mcp_tools
 from forge_code.mentions import expand_mentions
 from forge_code.models import Completion, Message
 from forge_code.permissions import PermissionGate
+from forge_code.project import refresh_if_markers
 from forge_code.prompts import system_prompt
 from forge_code.providers.factory import complete as default_complete
 from forge_code.qa.runner import QAReport, run_qa
@@ -180,6 +181,7 @@ class Agent:
                     )
                     self.on_event("tool_result", result[:800])
                 if writes:
+                    refresh_if_markers(self.root, writes)
                     diff = preview_writes(self.root, writes)
                     if diff:
                         self.on_event("diff", diff)
@@ -294,4 +296,6 @@ def _preview_args(name: str, arguments: dict) -> str:
         return "project_map"
     if name == "terminal_read":
         return "terminal_read"
+    if name == "outline":
+        return f"outline {arguments.get('path', '')}"
     return f"{name} {arguments}"

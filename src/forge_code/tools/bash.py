@@ -9,7 +9,14 @@ from typing import Any
 
 
 from forge_code.tools.base import jail
-from forge_code.tools.terminal import apply_cd, load_cwd, log_command, save_cwd
+from forge_code.tools.terminal import (
+    apply_cd,
+    load_cwd,
+    log_command,
+    peel_leading_cd,
+    resolve_cd,
+    save_cwd,
+)
 
 
 def run_bash(root: Path, args: dict[str, Any]) -> str:
@@ -28,6 +35,13 @@ def run_bash(root: Path, args: dict[str, Any]) -> str:
         save_cwd(root, cwd.relative_to(root.resolve()).as_posix() or ".")
     else:
         cwd = load_cwd(root)
+    dest, peeled = peel_leading_cd(command)
+    if dest:
+        target = resolve_cd(root, cwd, dest)
+        if target is not None:
+            cwd = target
+            save_cwd(root, cwd.resolve().relative_to(root.resolve()).as_posix() or ".")
+            command = peeled
     try:
         completed = subprocess.run(
             command,
@@ -45,5 +59,5 @@ def run_bash(root: Path, args: dict[str, Any]) -> str:
     cwd_rel = cwd.resolve().relative_to(root.resolve()).as_posix() or "."
     apply_cd(root, cwd, command)
     log_command(root, command, completed.returncode, output, cwd_rel)
-    header = f"exit {completed.returncode}"
+    header = f"exit {completed.returncode}  cwd {cwd_rel}"
     return header + ("\n" + output if output.strip() else "")

@@ -16,9 +16,13 @@ STATE_REL = Path(".forge") / "shell.json"
 MAX_ENTRIES = 12
 MAX_OUTPUT = 2_000
 MAX_READ = 8_000
-_SECRET = re.compile(
-    r"(?i)(api[_-]?key|secret|token|password|passwd|authorization)\s*[:=]\s*\S+"
+_SECRET_KV = re.compile(
+    r"(?i)(api[_-]?key|secret|token|password|passwd|authorization|bearer)\s*[:=]\s*\S+"
 )
+_SECRET_TOKEN = re.compile(
+    r"\b(sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{8,}|github_pat_[A-Za-z0-9_]{8,})\b"
+)
+_PEEL_CD = re.compile(r"^cd\s+(\S+)\s*(?:&&|;)\s*(.+)$", re.DOTALL)
 
 
 def load_cwd(root: Path) -> Path:
@@ -31,11 +35,28 @@ def load_cwd(root: Path) -> Path:
 
 
 def save_cwd(root: Path, rel: str) -> None:
-    path = root / STATE_REL
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = _state(root)
     payload["cwd"] = rel.strip() or "."
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    _write_state(root, payload)
+
+
+def record_last(root: Path, command: str, exit_code: int) -> None:
+    payload = _state(root)
+    payload["last_exit"] = exit_code
+    payload["last_command"] = _redact(command.strip())[:200]
+    _write_state(root, payload)
+
+
+def shell_snapshot(root: Path) -> dict[str, str]:
+    state = _state(root)
+    exit_code = state.get("last_exit", "-")
+    if exit_code in (None, ""):
+        exit_code = "-"
+    return {
+        "cwd": str(state.get("cwd") or "."),
+        "last_exit": str(exit_code),
+        "last_command": str(state.get("last_command") or ""),
+    }
 
 
 def log_command(root: Path, command: str, exit_code: int, output: str, cwd: str = ".") -> None:
@@ -62,6 +83,7 @@ def log_command(root: Path, command: str, exit_code: int, output: str, cwd: str 
         "Last shell commands in this workspace. Secrets redacted.\n\n"
     )
     path.write_text(header + "\n\n".join(rebuilt) + "\n", encoding="utf-8")
+    record_last(root, command, exit_code)
 
 
 def load_terminal(root: Path, limit: int = MAX_READ) -> str:
@@ -92,27 +114,46 @@ def recent_terminal(root: Path, limit: int = 1_500) -> str:
     return chunk[:limit]
 
 
-def apply_cd(root: Path, cwd: Path, command: str) -> Path:
-    raw = command.strip()
-    match = re.match(r"^cd\s+(\S+)$", raw)
-    if not match or any(ch in raw for ch in ";|&`$"):
-        return cwd
-    dest = match.group(1).strip("'\"")
+def peel_leading_cd(command: str) -> tuple[str | None, str]:
+    """If the command starts with ``cd dir &&`` or ``cd dir;``, return (dir, rest)."""
+    match = _PEEL_CD.match(command.strip())
+    if not match:
+        return None, command
+    dest, rest = match.group(1), match.group(2).strip()
+    if not rest:
+        return None, command
+    return dest, rest
+
+
+def resolve_cd(root: Path, cwd: Path, dest: str) -> Path | None:
+    dest = dest.strip("'\"")
     if dest in {"", "-"} or dest.startswith("-"):
-        return cwd
+        return None
+    if any(ch in dest for ch in ";|&`$"):
+        return None
     try:
         candidate = Path(dest).resolve() if Path(dest).is_absolute() else (cwd.resolve() / dest).resolve()
         rel = candidate.relative_to(root.resolve()).as_posix() or "."
         target = jail(root, rel)
     except (PermissionError, ValueError, OSError):
+        return None
+    return target if target.is_dir() else None
+
+
+def apply_cd(root: Path, cwd: Path, command: str) -> Path:
+    raw = command.strip()
+    match = re.match(r"^cd\s+(\S+)$", raw)
+    if not match or any(ch in raw for ch in ";|&`$"):
         return cwd
-    if target.is_dir():
-        save_cwd(root, rel)
-        return target
-    return cwd
+    target = resolve_cd(root, cwd, match.group(1))
+    if target is None:
+        return cwd
+    rel = target.resolve().relative_to(root.resolve()).as_posix() or "."
+    save_cwd(root, rel)
+    return target
 
 
-def _state(root: Path) -> dict[str, str]:
+def _state(root: Path) -> dict[str, Any]:
     path = root / STATE_REL
     if not path.is_file():
         return {"cwd": "."}
@@ -122,8 +163,19 @@ def _state(root: Path) -> dict[str, str]:
         return {"cwd": "."}
     if not isinstance(raw, dict):
         return {"cwd": "."}
-    return {"cwd": str(raw.get("cwd") or ".")}
+    return {
+        "cwd": str(raw.get("cwd") or "."),
+        "last_exit": raw.get("last_exit", "-"),
+        "last_command": str(raw.get("last_command") or ""),
+    }
+
+
+def _write_state(root: Path, payload: dict[str, Any]) -> None:
+    path = root / STATE_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def _redact(text: str) -> str:
-    return _SECRET.sub(lambda m: m.group(1) + "=***", text)
+    text = _SECRET_KV.sub(lambda m: m.group(1) + "=***", text)
+    return _SECRET_TOKEN.sub("***", text)

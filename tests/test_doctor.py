@@ -19,5 +19,8 @@ def test_doctor_lines_missing_key_and_local(tmp_path: Path, monkeypatch) -> None
     assert "missing" in lines
     assert "qwen2.5-coder" in lines
     assert "down" in lines
+    assert "cwd" in lines
+    assert "context" in lines
+    assert "last bash" in lines
     local = AppConfig(provider="ollama", model="local")
     assert "local" in "\n".join(doctor_lines(tmp_path, local))
