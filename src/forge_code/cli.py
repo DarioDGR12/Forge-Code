@@ -168,6 +168,18 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("chat", help="open the chat REPL", parents=[common])
     sub.add_parser("menu", help="open the OPEN FORGE menu", parents=[common])
 
+    contrib = sub.add_parser(
+        "contribute",
+        help="send a recommendation or open the GitHub repo",
+    )
+    contrib.add_argument(
+        "action",
+        nargs="?",
+        choices=["recommend", "code"],
+        help="recommend an improvement, or open GitHub",
+    )
+    contrib.add_argument("message", nargs="*", help="recommendation text")
+
     args = parser.parse_args(argv)
     root = Path(args.repo).resolve()
     cfg = load_config()
@@ -275,6 +287,8 @@ def main(argv: list[str] | None = None) -> int:
         return start_repl(root, cfg)
     if args.cmd == "menu":
         return start_menu(root, cfg)
+    if args.cmd == "contribute":
+        return _cmd_contribute(args)
     error(f"unknown command {args.cmd}")
     return 2
 
@@ -642,6 +656,41 @@ def _cmd_providers(cfg) -> int:
         state = "local" if is_local(spec) else spec.get("key_env") or ""
         rows.append((f"{name}{mark}", spec.get("default_model") or "", aliases, state))
     provider_table(rows)
+    return 0
+
+
+def _cmd_contribute(args: argparse.Namespace) -> int:
+    from forge_code.contribute import (
+        FEEDBACK_EMAIL,
+        contribute_guide,
+        open_github,
+        send_recommendation,
+    )
+
+    action = args.action
+    message = " ".join(args.message).strip()
+    if action == "code":
+        console.print(contribute_guide())
+        open_github()
+        return 0
+    if action is None:
+        console.print(contribute_guide())
+        console.print(t("contrib_cli_help", email=FEEDBACK_EMAIL))
+        return 0
+    if not message:
+        console.print(t("contrib_body_hint", email=FEEDBACK_EMAIL))
+        try:
+            message = input(f"{t('contrib_body_prompt')}: ").strip()
+        except EOFError:
+            message = ""
+    if not message:
+        error(t("contrib_empty"))
+        return 2
+    name = os.environ.get("USER") or os.environ.get("USERNAME") or "anonymous"
+    path, opened = send_recommendation(message, name)
+    console.print(t("contrib_saved", path=str(path)))
+    key = "contrib_mailto_opened" if opened else "contrib_mailto_failed"
+    console.print(t(key, email=FEEDBACK_EMAIL))
     return 0
 
 

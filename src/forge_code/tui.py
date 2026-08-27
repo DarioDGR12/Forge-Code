@@ -36,6 +36,7 @@ def start_menu(
     choose: Chooser | None = None,
     ask: Asker | None = None,
     chat: ChatFn | None = None,
+    open_url=None,
 ) -> int:
     chooser = choose or choose_index
     asker = ask or ask_line
@@ -47,6 +48,7 @@ def start_menu(
             ("chats", t("menu_chats")),
             ("models", t("menu_models")),
             ("config", t("menu_config")),
+            ("contributions", t("menu_contributions")),
             ("chat", t("menu_forge")),
             ("quit", t("menu_quit")),
         ]
@@ -67,6 +69,9 @@ def start_menu(
             continue
         if picked == "config":
             _config(cfg, chooser)
+            continue
+        if picked == "contributions":
+            _contributions(chooser, asker, open_url=open_url)
             continue
         if picked == "chat":
             if needs_api_key(cfg) and not _providers(cfg, chooser, asker):
@@ -179,6 +184,44 @@ def _config(cfg: AppConfig, chooser: Chooser) -> None:
             idx = THEMES.index(cfg.theme) if cfg.theme in THEMES else 0
             cfg.theme = THEMES[(idx + 1) % len(THEMES)]
         save_config(cfg)
+
+
+def _contributions(chooser: Chooser, asker: Asker, *, open_url=None) -> None:
+    import webbrowser
+
+    from forge_code.contribute import (
+        FEEDBACK_EMAIL,
+        contribute_guide,
+        open_github,
+        send_recommendation,
+    )
+
+    opener = open_url or webbrowser.open
+    while True:
+        items = [
+            ("recommend", t("contrib_recommend")),
+            ("code", t("contrib_code")),
+            ("back", t("menu_back")),
+        ]
+        picked = _pick(chooser, t("contrib_title"), items)
+        if picked in (None, "back"):
+            return
+        if picked == "recommend":
+            name = (asker(t("contrib_name_prompt")) or "").strip() or "anonymous"
+            console.print(t("contrib_body_hint", email=FEEDBACK_EMAIL))
+            body = (asker(t("contrib_body_prompt")) or "").strip()
+            if not body:
+                console.print(t("contrib_empty"))
+                continue
+            saved, opened = send_recommendation(body, name, open_url=opener)
+            console.print(t("contrib_saved", path=str(saved)))
+            key = "contrib_mailto_opened" if opened else "contrib_mailto_failed"
+            console.print(t(key, email=FEEDBACK_EMAIL))
+            continue
+        if picked == "code":
+            console.print(contribute_guide())
+            console.print(t("contrib_opening_github"))
+            open_github(open_url=opener)
 
 
 def _status_line(cfg: AppConfig) -> str:

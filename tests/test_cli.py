@@ -267,3 +267,25 @@ def test_sessions_rm_cli(tmp_path, monkeypatch) -> None:
     assert main(["sessions", "rm", session.id[:6], "--repo", str(tmp_path)]) == 0
     assert list_sessions(tmp_path) == []
 
+
+def test_contribute_cli(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("USER", "tester")
+    urls: list[str] = []
+    monkeypatch.setattr(
+        "webbrowser.open", lambda url, *a, **k: urls.append(url) or True
+    )
+    assert main(["contribute"]) == 0
+    assert urls == []
+    assert main(["contribute", "code"]) == 0
+    assert urls == ["https://github.com/DarioDGR12/Forge-Code"]
+    urls.clear()
+    assert main(["contribute", "recommend", "please", "add", "vim"]) == 0
+    assert urls
+    assert urls[0].startswith("mailto:dariopro.1212@gmail.com?")
+    saved = list((tmp_path / "data" / "forge-code" / "contributions").glob("*.md"))
+    assert saved
+    assert "please add vim" in saved[0].read_text(encoding="utf-8")
+    monkeypatch.setattr("sys.stdin", __import__("io").StringIO(""))
+    assert main(["contribute", "recommend"]) == 2
+

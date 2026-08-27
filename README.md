@@ -6,7 +6,7 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.12.0  
+Apache License 2.0 · v0.13.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
@@ -19,6 +19,7 @@ $ forge
 │    chats                                    │
 │    models                                   │
 │    config                                   │
+│    contributions                            │
 │    forge                                    │
 │    quit                                     │
 │                                             │
@@ -47,7 +48,8 @@ forge
 2. **chats** → resume a saved session
 3. **models** → switch model
 4. **config** → qa / bash / theme / quiet
-5. **forge** → open chat (if a key is already saved)
+5. **contributions** → recommend an improvement (opens mail to dariopro.1212@gmail.com — hit Send) or open the GitHub repo to contribute code
+6. **forge** → open chat (if a key is already saved)
 
 Skip the menu: `forge chat` or `forge --repl`.
 
@@ -187,7 +189,7 @@ Pin extra checks in `.forge/config.json`:
 
 | Command | What it does |
 | --- | --- |
-| `forge` | OPEN FORGE menu (providers, chats, models, config) |
+| `forge` | OPEN FORGE menu (providers, chats, models, config, contributions) |
 | `forge chat` | Skip the menu, open the chat |
 | `forge --resume ID` | Continue a saved session |
 | `forge -c` / `--continue` | Resume the latest session |
@@ -225,6 +227,9 @@ Pin extra checks in `.forge/config.json`:
 | `forge share [ID]` | Write a markdown share under `.forge/shares/` |
 | `forge shares` | List saved shares |
 | `forge theme [name]` | Show or set the REPL color |
+| `forge contribute` | Show how to recommend an idea or contribute code |
+| `forge contribute recommend "…"` | Open mail to dariopro.1212@gmail.com (hit Send) |
+| `forge contribute code` | Open the GitHub repo |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
 REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`

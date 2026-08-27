@@ -18,6 +18,8 @@ def test_lang_and_spanish(monkeypatch) -> None:
     assert "sesión nueva" in t("new_session", id="abc")
     assert "API" in t("need_api")
     assert t("menu_forge") == "forge"
+    assert t("menu_contributions") == "contribuciones"
+    assert "correo" in t("contrib_body_hint", email="x@y.z")
 
 
 def test_lang_english_default(monkeypatch) -> None:

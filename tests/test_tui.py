@@ -32,7 +32,7 @@ def test_menu_provider_api_opens_chat(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([0, mistral, 5]),
+        choose=_Choices([0, mistral, 6]),
         ask=lambda _prompt: "sk-from-menu",
         chat=fake_chat,
     )
@@ -55,7 +55,7 @@ def test_menu_local_provider_skips_api(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([0, ollama, 5]),
+        choose=_Choices([0, ollama, 6]),
         ask=lambda _prompt: "SHOULD_NOT_RUN",
         chat=fake_chat,
     )
@@ -76,7 +76,7 @@ def test_menu_chats_new(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([1, 0, 5]),
+        choose=_Choices([1, 0, 6]),
         ask=lambda _prompt: "",
         chat=fake_chat,
     )
@@ -90,3 +90,58 @@ def test_numbered_choose(monkeypatch) -> None:
     monkeypatch.setattr(sys, "stdin", io.StringIO("2\n"))
     monkeypatch.setattr(sys.stdout, "isatty", lambda: False)
     assert choose_index("home", ["a", "b", "c"]) == 1
+
+
+def test_menu_contributions_recommend(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    urls: list[str] = []
+    prompts = ["Ada", "please add vim keys"]
+
+    start_menu(
+        tmp_path,
+        AppConfig(),
+        choose=_Choices([4, 0, 2, 6]),
+        ask=lambda _prompt: prompts.pop(0),
+        chat=lambda *_a, **_k: 0,
+        open_url=lambda url: urls.append(url) or True,
+    )
+    assert urls
+    assert any("mailto:dariopro.1212@gmail.com" in url for url in urls)
+    saved = list((tmp_path / "data" / "forge-code" / "contributions").glob("*.md"))
+    assert len(saved) == 1
+    text = saved[0].read_text(encoding="utf-8")
+    assert "Ada" in text
+    assert "vim keys" in text
+    assert "dariopro.1212@gmail.com" in text
+
+
+def test_menu_contributions_code(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    urls: list[str] = []
+    start_menu(
+        tmp_path,
+        AppConfig(),
+        choose=_Choices([4, 1, 2, 6]),
+        ask=lambda _prompt: "",
+        chat=lambda *_a, **_k: 0,
+        open_url=lambda url: urls.append(url) or True,
+    )
+    assert urls == ["https://github.com/DarioDGR12/Forge-Code"]
+
+
+def test_menu_contributions_empty_skips_mail(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    urls: list[str] = []
+    start_menu(
+        tmp_path,
+        AppConfig(),
+        choose=_Choices([4, 0, 2, 6]),
+        ask=lambda _prompt: "",
+        chat=lambda *_a, **_k: 0,
+        open_url=lambda url: urls.append(url) or True,
+    )
+    assert urls == []
+    folder = tmp_path / "data" / "forge-code" / "contributions"
+    assert not folder.exists() or list(folder.glob("*.md")) == []

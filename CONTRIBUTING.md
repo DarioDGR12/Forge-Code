@@ -11,3 +11,8 @@ pytest
 ```
 
 Use `git commit -s` (Developer Certificate of Origin).
+
+From the OPEN FORGE menu, **contributions** can send a recommendation
+(opens mail to dariopro.1212@gmail.com) or open this GitHub repo.
+Same from the shell: `forge contribute recommend "your idea"` or
+`forge contribute code`.
