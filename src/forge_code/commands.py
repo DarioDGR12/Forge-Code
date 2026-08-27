@@ -56,6 +56,8 @@ RESERVED = {
     "contributions",
     "lang",
     "language",
+    "context",
+    "terminal",
 }
 
 _NAME = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")

@@ -91,4 +91,13 @@ def init_workspace(root: Path) -> list[tuple[str, str]]:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         results.append((rel, "wrote"))
+    from forge_code.project import context_path, save_context
+
+    ctx = context_path(root)
+    ctx_rel = ctx.relative_to(root).as_posix()
+    if ctx.is_file():
+        results.append((ctx_rel, "exists"))
+    else:
+        save_context(root)
+        results.append((ctx_rel, "wrote"))
     return results

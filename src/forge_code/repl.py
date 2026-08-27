@@ -225,6 +225,8 @@ def _enable_readline(root: Path) -> None:
         "/copy",
         "/commands",
         "/memory",
+        "/context",
+        "/terminal",
         "/alias ",
         "/budget",
         "/share",
@@ -524,6 +526,21 @@ def _slash(
             info(t("empty_memory"))
         else:
             speak(text)
+        return ""
+    if cmd == "context":
+        from forge_code.project import ensure_context, save_context
+
+        if arg in {"refresh", "scan"}:
+            save_context(root)
+            ok("context refreshed")
+        text = ensure_context(root)
+        speak(text or "(empty context)")
+        return ""
+    if cmd == "terminal":
+        from forge_code.tools.terminal import load_terminal
+
+        text = load_terminal(root)
+        speak(text or "(empty terminal log)")
         return ""
     if cmd == "mcp":
         rows = describe_mcp(cfg.mcp)

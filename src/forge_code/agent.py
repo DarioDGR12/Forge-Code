@@ -290,4 +290,8 @@ def _preview_args(name: str, arguments: dict) -> str:
         return f"memory_write {arguments.get('note', '')}"[:80]
     if name == "memory_read":
         return "memory_read"
+    if name == "project_map":
+        return "project_map"
+    if name == "terminal_read":
+        return "terminal_read"
     return f"{name} {arguments}"

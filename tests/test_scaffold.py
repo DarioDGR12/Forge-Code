@@ -13,6 +13,8 @@ def test_init_writes_then_skips(tmp_path: Path) -> None:
     assert first[".forge/commands/test.md"] == "wrote"
     assert first[".forge/commands/commit-msg.md"] == "wrote"
     assert first[".forge/skills/python.md"] == "wrote"
+    assert first[".forge/context.md"] == "wrote"
+    assert (tmp_path / ".forge" / "context.md").is_file()
     assert (tmp_path / "AGENTS.md").is_file()
     second = dict(init_workspace(tmp_path))
     assert set(second.values()) == {"exists"}

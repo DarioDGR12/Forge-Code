@@ -302,3 +302,11 @@ def test_set_lang_cli(tmp_path, monkeypatch) -> None:
     assert main(["set", "lang", "auto"]) == 0
     assert load_config().lang == "auto"
 
+
+def test_context_and_terminal_cli(tmp_path) -> None:
+    (tmp_path / "README.md").write_text("# CLI ctx\n", encoding="utf-8")
+    assert main(["context", "--repo", str(tmp_path)]) == 0
+    assert (tmp_path / ".forge" / "context.md").is_file()
+    assert main(["context", "--refresh", "--repo", str(tmp_path)]) == 0
+    assert main(["terminal", "--repo", str(tmp_path)]) == 0
+

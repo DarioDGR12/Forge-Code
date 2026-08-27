@@ -19,8 +19,10 @@ from forge_code.tools.git import git_commit, git_diff, git_log, git_status
 from forge_code.tools.memory import memory_read, memory_write
 from forge_code.tools.patch import apply_patch
 from forge_code.tools.search import glob_files, grep_files
+from forge_code.tools.terminal import terminal_read
 from forge_code.tools.todo import read_todo, update_todo
 from forge_code.tools.tree import tree_dir
+from forge_code.project import project_map
 
 STR = {"type": "string"}
 WRITE_TOOLS = {"write_file", "edit_file", "apply_patch"}
@@ -204,7 +206,11 @@ def _builtin_tools() -> list[ToolSpec]:
             description="Run a shell command in the workspace. Prefer QA for tests.",
             parameters={
                 "type": "object",
-                "properties": {"command": STR, "timeout": {"type": "integer"}},
+                "properties": {
+                    "command": STR,
+                    "timeout": {"type": "integer"},
+                    "cwd": {**STR, "description": "Workspace-relative directory (persists)"},
+                },
                 "required": ["command"],
             },
             fn=run_bash,
@@ -302,5 +308,18 @@ def _builtin_tools() -> list[ToolSpec]:
             },
             fn=memory_write,
             writes=True,
+        ),
+        ToolSpec(
+            name="project_map",
+            description="Scan the workspace and write .forge/context.md (stack, tests, layout, git).",
+            parameters={"type": "object", "properties": {}},
+            fn=project_map,
+            writes=True,
+        ),
+        ToolSpec(
+            name="terminal_read",
+            description="Read recent shell commands and output from .forge/terminal.md.",
+            parameters={"type": "object", "properties": {}},
+            fn=terminal_read,
         ),
     ]

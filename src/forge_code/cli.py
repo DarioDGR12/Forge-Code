@@ -126,6 +126,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("diff", help="show last agent edits or git diff", parents=[common])
     sub.add_parser("commands", help="list custom slash commands", parents=[common])
     sub.add_parser("memory", help="print .forge/memory.md", parents=[common])
+    ctx_p = sub.add_parser("context", help="show or refresh .forge/context.md", parents=[common])
+    ctx_p.add_argument("--refresh", action="store_true", help="rescan the workspace")
+    sub.add_parser("terminal", help="print .forge/terminal.md", parents=[common])
 
     worktree = sub.add_parser("worktree", help="isolated git worktrees", parents=[common])
     worktree.add_argument("action", choices=["add", "list", "remove"])
@@ -251,6 +254,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "memory":
         text = load_memory(root)
         console.print(text or t("empty_memory"))
+        return 0
+    if args.cmd == "context":
+        return _cmd_context(root, refresh=bool(args.refresh))
+    if args.cmd == "terminal":
+        from forge_code.tools.terminal import load_terminal
+
+        text = load_terminal(root)
+        console.print(text or "(empty terminal log)")
         return 0
     if args.cmd == "worktree":
         return _cmd_worktree(root, args)
@@ -537,6 +548,16 @@ def _cmd_share(root: Path, args: argparse.Namespace) -> int:
 def _cmd_init(root: Path) -> int:
     for rel, state in init_workspace(root):
         console.print(f"{state:6} {rel}")
+    return 0
+
+
+def _cmd_context(root: Path, refresh: bool = False) -> int:
+    from forge_code.project import ensure_context, save_context
+
+    if refresh:
+        save_context(root)
+    text = ensure_context(root)
+    console.print(text or "(empty context)")
     return 0
 
 

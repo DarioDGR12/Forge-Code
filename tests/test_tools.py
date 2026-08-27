@@ -54,5 +54,5 @@ def test_grep_and_glob(tmp_path: Path) -> None:
 
 def test_v04_tools_are_registered() -> None:
     names = default_registry().names()
-    for name in ("git_commit", "fetch_url", "explore", "memory_read", "memory_write"):
+    for name in ("git_commit", "fetch_url", "explore", "memory_read", "memory_write", "project_map", "terminal_read"):
         assert name in names

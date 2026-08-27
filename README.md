@@ -6,7 +6,7 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.15.0  
+Apache License 2.0 · v0.16.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
@@ -228,6 +228,9 @@ Pin extra checks in `.forge/config.json`:
 | `forge diff` | Last agent edits or current git diff |
 | `forge commands` | List `.forge/commands/*.md` slash commands |
 | `forge memory` | Print `.forge/memory.md` |
+| `forge context` | Show `.forge/context.md` (stack, tests, layout) |
+| `forge context --refresh` | Rescan the workspace and rewrite context |
+| `forge terminal` | Print recent shell log (`.forge/terminal.md`) |
 | `forge worktree add\|list\|remove` | Isolated git worktrees under `.worktrees/` |
 | `forge alias` | List / set / remove model aliases |
 | `forge budget` | Show the session cost/token cap |
@@ -239,7 +242,7 @@ Pin extra checks in `.forge/config.json`:
 | `forge contribute code` | Open the GitHub repo |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/set lang` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/set lang` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/context` `/terminal` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
 
 Type `@src/file.py` (optional `:10-20`) to attach file contents to the prompt.
 
@@ -247,12 +250,17 @@ Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
 ## Tools
 
-`read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore` `memory_read` `memory_write`
+`read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore` `memory_read` `memory_write` `project_map` `terminal_read`
 
 - **explore** — read-only nested search (plan-mode tools only; cannot recurse)
 - **fetch_url** — public documentation, 80 KB cap, HTML stripped
 - **git_commit** — `git add -- <paths>` then `git commit -m`
 - **memory_*** — append-only facts in `.forge/memory.md` (no secrets)
+- **project_map** — scan the repo and write `.forge/context.md` (stack, tests, layout, git)
+- **terminal_read** — recent `bash` commands and output in `.forge/terminal.md`
+- **bash** — `cwd` is workspace-jailed and persists (`cd src` sticks for the next call)
+
+The system prompt loads `.forge/context.md` and the last shell snippets every turn. `forge context --refresh` or `/context refresh` rebuilds the map. Secrets in the terminal log are redacted.
 
 After writes, the REPL shows a unified diff of the turn. `/diff` and `forge diff` replay it (or fall back to `git diff`).
 
@@ -406,6 +414,9 @@ Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can 
 | `.forge/skills/*.md` | Extra system-prompt skills |
 | `.forge/commands/*.md` | Custom slash commands |
 | `.forge/memory.md` | Persistent notes (`memory_write`) |
+| `.forge/context.md` | Generated project map (`project_map`) |
+| `.forge/terminal.md` | Recent shell log (`bash` / `terminal_read`) |
+| `.forge/shell.json` | Persisted bash cwd |
 | `.forge/shares/` | Markdown exports from `/share` |
 | `.worktrees/` | Isolated checkouts from `forge worktree add` |
 | `~/.config/forge-code/` | User config + credentials |

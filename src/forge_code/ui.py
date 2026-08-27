@@ -165,7 +165,7 @@ def help_text() -> str:
 - `/pin [note]` — append last reply (or note) to memory
 - `/alias` `/budget` `/share` `/shares`
 - `/theme NAME` `/quiet` `/quiet on|off`
-- `/commands` `/memory`
+- `/commands` `/memory` `/context` `/context refresh` `/terminal`
 - `/bash allow|ask|deny`
 - `/mcp` — configured MCP servers
 - `/sessions` `/sessions rm ID` `/resume ID` `/export [path]`
@@ -183,7 +183,7 @@ def help_text() -> str:
 `forge ci --task "..."` · `forge undo` · `forge diff`
 `forge worktree add|list|remove NAME`
 `forge qa` · `forge set provider openai` · `forge models` · `forge sessions`
-`forge mcp` · `forge commands` · `forge memory` · `forge doctor`
+`forge mcp` · `forge commands` · `forge memory` · `forge context` · `forge terminal` · `forge doctor`
 `forge alias` · `forge budget` · `forge share` · `forge shares` · `forge theme`
 `forge contribute` · `forge set lang es`
 """.strip()
