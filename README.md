@@ -13,7 +13,7 @@ After every edit, Forge runs **integrated QA** until the suite is green.
 
 ![Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-22d3ee?style=flat-square)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0ea5e9?style=flat-square)
-![v0.17.0](https://img.shields.io/badge/version-0.17.0-f59e0b?style=flat-square)
+![v0.18.0](https://img.shields.io/badge/version-0.18.0-f59e0b?style=flat-square)
 
 Not affiliated with OpenCode or Anthropic.
 
@@ -43,7 +43,7 @@ which forge
 # must be …/Forge-Code/.venv/bin/forge
 
 forge --version
-# forge 0.17.0
+# forge 0.18.0
 
 forge
 ```
@@ -58,7 +58,7 @@ source ~/Forge-Code/.venv/bin/activate    # then: forge
 ~/Forge-Code/.venv/bin/python -m forge_code
 ```
 
-`forge --version` must print `forge 0.17.0`. If you see `forge vibe`, “marketplace”,
+`forge --version` must print `forge 0.18.0`. If you see `forge vibe`, “marketplace”,
 or `unrecognized arguments: menu` / `context`, that is a **different program** named
 `forge`. `which forge` shows which one. Activate the venv (or use the paths above).
 

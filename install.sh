@@ -34,12 +34,12 @@ echo
 echo "Installed. This CLI is: $BIN"
 echo
 echo "  source $VENV/bin/activate"
-echo "  forge --version    # must print forge 0.17.0"
+echo "  forge --version    # must print forge 0.18.0"
 echo "  forge              # OPEN FORGE menu"
 echo
 echo "Without activate:  $BIN"
 echo "Unambiguous:       $VENV/bin/python -m forge_code"
 echo
-echo "If forge --version is not forge 0.17.0 (forge vibe, marketplace,"
+echo "If forge --version is not forge 0.18.0 (forge vibe, marketplace,"
 echo "unrecognized arguments: menu), another program named forge is on PATH."
 echo "which forge  shows which one. Use the venv binary above."
