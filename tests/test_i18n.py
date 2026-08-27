@@ -17,6 +17,7 @@ def test_lang_and_spanish(monkeypatch) -> None:
     assert "título" in t("rename_usage")
     assert "sesión nueva" in t("new_session", id="abc")
     assert "API" in t("need_api")
+    assert t("menu_forge") == "forge"
 
 
 def test_lang_english_default(monkeypatch) -> None:

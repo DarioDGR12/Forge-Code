@@ -6,24 +6,24 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.11.0  
+Apache License 2.0 · v0.12.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
 $ forge
 
-  Forge  v0.11.0
-  session  a1b2c3d4e5f6
-  repo     ~/src/app
-  model    ollama/qwen2.5-coder:7b
-  mode     build    qa on    bash allow
-
-❯ fix the failing tests
-
-  ▸ read_file src/add.py
-  ▸ edit_file src/add.py
-  QA: passed · pytest 412ms
-  1,204 tokens (980 in / 224 out)
+┌──────────── O P E N   F O R G E ────────────┐
+│  openai / gpt-4.1-mini    no key            │
+│                                             │
+│  › providers                                │
+│    chats                                    │
+│    models                                   │
+│    config                                   │
+│    forge                                    │
+│    quit                                     │
+│                                             │
+│  ↑↓ enter · number + enter · q back         │
+└─────────────────────────────────────────────┘
 ```
 
 ## Install
@@ -38,8 +38,20 @@ cd Forge-Code
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-forge --help
+forge
 ```
+
+`forge` opens the **OPEN FORGE** window. Arrow keys (or a number) to select:
+
+1. **providers** → pick Mistral / OpenAI / DeepSeek / Kimi / … → paste the API key → chat starts
+2. **chats** → resume a saved session
+3. **models** → switch model
+4. **config** → qa / bash / theme / quiet
+5. **forge** → open chat (if a key is already saved)
+
+Skip the menu: `forge chat` or `forge --repl`.
+
+Spanish: `export FORGE_LANG=es`
 
 Or:
 
@@ -47,18 +59,18 @@ Or:
 curl -fsSL https://raw.githubusercontent.com/DarioDGR12/Forge-Code/main/install.sh | bash
 ```
 
-`forge` with no arguments opens the interactive agent.
+`forge` with no arguments opens the OPEN FORGE menu in the terminal.
 
 Spanish prompts: `export FORGE_LANG=es` (also honors `LANG=es_*` for `/bash ask`).
 
 ## Bring your own key
 
-Two commands. That is the whole setup:
+Two steps inside the menu (**providers** → paste key), or the same from the shell:
 
 ```bash
-forge providers                      # see the list
-forge set provider mistralai         # or: openai, anthropic, deepseek, kimi, ...
-forge set api sk-your-key            # same as: forge api sk-your-key
+forge providers
+forge set provider mistralai
+forge set api sk-your-key
 forge
 ```
 
@@ -175,7 +187,8 @@ Pin extra checks in `.forge/config.json`:
 
 | Command | What it does |
 | --- | --- |
-| `forge` | Interactive agent (REPL) |
+| `forge` | OPEN FORGE menu (providers, chats, models, config) |
+| `forge chat` | Skip the menu, open the chat |
 | `forge --resume ID` | Continue a saved session |
 | `forge -c` / `--continue` | Resume the latest session |
 | `forge --model NAME` | Model or alias for this invocation |

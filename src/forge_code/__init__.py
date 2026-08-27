@@ -3,4 +3,4 @@
 
 """Forge-Code: terminal coding agent with BYOK, local models, and integrated QA."""
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"

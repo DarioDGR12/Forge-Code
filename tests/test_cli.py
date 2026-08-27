@@ -76,6 +76,15 @@ def test_alias_budget_share_cli(tmp_path, monkeypatch) -> None:
     assert main(["set", "api", "sk-test-cli"]) == 0
     assert main(["api", "sk-test-cli-2"]) == 0
     assert main(["set", "nope-vendor"]) == 2
+    seen: dict = {}
+
+    def fake_repl(root, cfg, session_id=None):
+        seen["chat"] = True
+        return 0
+
+    monkeypatch.setattr("forge_code.cli.start_repl", fake_repl)
+    assert main(["chat", "--repo", str(tmp_path)]) == 0
+    assert seen["chat"] is True
     try:
         main(["find"])
     except SystemExit as exc:

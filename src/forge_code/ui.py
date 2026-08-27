@@ -174,7 +174,7 @@ def help_text() -> str:
 - Ctrl+C stops the current turn
 
 **CLI**
-`forge set provider mistralai` · `forge set api KEY` · `forge providers`
+`forge` · `forge chat` · `forge set provider mistralai` · `forge set api KEY` · `forge providers`
 `forge run "fix the failing tests"` · `forge run --plan "…"` · `forge run -q "…"`
 `forge run --model fast --provider openai "…"` · `echo task | forge run -`
 `forge -c` · `forge --resume ID` · `forge --model local`

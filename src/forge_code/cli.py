@@ -30,6 +30,7 @@ from forge_code.providers.catalog import DEFAULT_PROVIDERS, aliases_for, is_loca
 from forge_code.providers.factory import list_remote_models, probe_local
 from forge_code.qa.runner import run_qa
 from forge_code.repl import start_repl
+from forge_code.tui import start_menu
 from forge_code.scaffold import init_workspace
 from forge_code.session import (
     delete_session,
@@ -80,6 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--model", help="model or alias (this invocation)")
     parser.add_argument("--provider", help="provider (this invocation)")
+    parser.add_argument("--repl", action="store_true", help="skip the menu and open chat")
     sub = parser.add_subparsers(dest="cmd")
 
     run = sub.add_parser("run", help="one-shot non-interactive task", parents=[common])
@@ -163,6 +165,8 @@ def main(argv: list[str] | None = None) -> int:
     api_p.add_argument("key", nargs="*", help="API key (prompt if omitted)")
 
     sub.add_parser("providers", help="list built-in providers")
+    sub.add_parser("chat", help="open the chat REPL", parents=[common])
+    sub.add_parser("menu", help="open the OPEN FORGE menu", parents=[common])
 
     args = parser.parse_args(argv)
     root = Path(args.repo).resolve()
@@ -178,7 +182,10 @@ def main(argv: list[str] | None = None) -> int:
         if not sid and getattr(args, "continue_last", False):
             latest = latest_session(root)
             sid = latest.id if latest else None
-        return start_repl(root, cfg, session_id=sid)
+        skip_menu = bool(sid or getattr(args, "repl", False) or not _want_menu())
+        if skip_menu:
+            return start_repl(root, cfg, session_id=sid)
+        return start_menu(root, cfg)
     if args.cmd == "run":
         task = _maybe_stdin(args.task)
         if not task:
@@ -264,6 +271,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_api(cfg, " ".join(args.key))
     if args.cmd == "providers":
         return _cmd_providers(cfg)
+    if args.cmd == "chat":
+        return start_repl(root, cfg)
+    if args.cmd == "menu":
+        return start_menu(root, cfg)
     error(f"unknown command {args.cmd}")
     return 2
 
@@ -643,6 +654,12 @@ def _cmd_find(root: Path, query: str) -> int:
         [(hit.session_id, hit.role, hit.title, hit.snippet) for hit in hits]
     )
     return 0
+
+
+def _want_menu() -> bool:
+    if os.environ.get("FORGE_MENU", "1").lower() in {"0", "off", "false", "no"}:
+        return False
+    return bool(sys.stdin.isatty() and sys.stdout.isatty())
 
 
 def _apply_overrides(cfg, args: argparse.Namespace) -> None:
