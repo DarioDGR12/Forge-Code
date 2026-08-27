@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -76,6 +78,27 @@ def usage_line(model: str, usage: Usage) -> None:
     console.print(f"  [dim]{format_usage(model, usage)}[/]")
 
 
+def files_panel(rels: list[str], folder: str) -> None:
+    if not rels:
+        return
+    console.print()
+    console.print(f"[bold cyan]files[/]  {folder}")
+    console.print(f"[dim]/copy copies the last file · open {folder} in Files / Finder[/]")
+    for rel in rels:
+        console.print(f"  [cyan]▸[/] {rel}")
+
+
+def show_copyable(root: Path, rels: list[str]) -> None:
+    """Print each written file as a fenced block so it is easy to copy."""
+    from forge_code.files import fence_blocks
+
+    body = fence_blocks(root, rels)
+    if not body:
+        return
+    console.print()
+    speak(body)
+
+
 def error(message: str) -> None:
     console.print(f"[red]error[/] {message}")
 
@@ -109,6 +132,17 @@ def mcp_table(rows: list[tuple[str, str, str]]) -> None:
     console.print(table)
 
 
+def provider_table(rows: list[tuple[str, str, str, str]]) -> None:
+    table = Table(title="Providers", expand=True)
+    table.add_column("name", style="bold")
+    table.add_column("model")
+    table.add_column("also")
+    table.add_column("key")
+    for row in rows:
+        table.add_row(*row)
+    console.print(table)
+
+
 def session_table(rows: list[tuple[str, str, str, str]]) -> None:
     table = Table(title="Sessions")
     table.add_column("id")
@@ -135,7 +169,8 @@ def help_text() -> str:
     return """
 **REPL**
 - `/help` `/status` `/tools`
-- `/model NAME` `/provider NAME`
+- `/model NAME` `/provider NAME` `/providers`
+- `/set provider NAME` `/set lang auto|en|es` `/api KEY`
 - `/mode build|plan`
 - `/qa` `/qa on` `/qa off`
 - `/compact` `/compact hard` — shrink conversation
@@ -146,25 +181,33 @@ def help_text() -> str:
 - `/ask <question>` — read-only Q&A
 - `/retry` — repeat last task
 - `/last` — reprint last assistant reply
+- `/copy [path]` — copy last written file (or last reply) to the clipboard
+- `/files` — show last written files (also saved under `files/`)
+- `/new [title]` — start a fresh session
+- `/rename <title>` — name this session
 - `/find <query>` — search saved sessions
 - `/pin [note]` — append last reply (or note) to memory
 - `/alias` `/budget` `/share` `/shares`
 - `/theme NAME` `/quiet` `/quiet on|off`
-- `/commands` `/memory`
+- `/commands` `/memory` `/context` `/context refresh` `/terminal`
 - `/bash allow|ask|deny`
 - `/mcp` — configured MCP servers
-- `/sessions` `/resume ID` `/export [path]`
+- `/sessions` `/sessions rm ID` `/resume ID` `/export [path]`
 - `/init` `/clear` `/exit`
 - Custom: `.forge/commands/*.md` → `/name`
 - Ctrl+C stops the current turn
 
 **CLI**
+`forge` · `forge chat` · `forge set provider mistralai` · `forge set api KEY` · `forge providers`
 `forge run "fix the failing tests"` · `forge run --plan "…"` · `forge run -q "…"`
+`forge run --model fast --provider openai "…"` · `echo task | forge run -`
+`forge -c` · `forge --resume ID` · `forge --model local`
 `forge ask "where is auth handled?"`
-`forge find "auth"` · `forge sessions search auth`
+`forge find "auth"` · `forge sessions search auth` · `forge sessions rm ID`
 `forge ci --task "..."` · `forge undo` · `forge diff`
 `forge worktree add|list|remove NAME`
-`forge qa` · `forge auth login openai` · `forge models` · `forge sessions`
-`forge mcp` · `forge commands` · `forge memory` · `forge doctor`
+`forge qa` · `forge set provider openai` · `forge models` · `forge sessions`
+`forge mcp` · `forge commands` · `forge memory` · `forge context` · `forge terminal` · `forge files` · `forge doctor`
 `forge alias` · `forge budget` · `forge share` · `forge shares` · `forge theme`
+`forge contribute` · `forge set lang es`
 """.strip()

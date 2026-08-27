@@ -7,22 +7,25 @@ import os
 from pathlib import Path
 
 from forge_code.agent import Agent, undo_turn
+from forge_code.auth import apply_api_key, apply_provider, needs_api_key
 from forge_code.commands import expand_command, load_commands
 from forge_code.compact import compact_messages
-from forge_code.config import AppConfig, save_config
+from forge_code.config import AppConfig, apply_lang, save_config
 from forge_code.diffview import visible_diff
 from forge_code.i18n import t
 from forge_code.interrupt import CancelFlag
 from forge_code.mcp import close_mcp, describe_mcp
 from forge_code.models import Message
 from forge_code.qa.runner import run_qa
+from forge_code.providers.catalog import DEFAULT_PROVIDERS, aliases_for, is_local
 from forge_code.scaffold import init_workspace
 from forge_code.session import (
+    delete_session,
     export_markdown,
     list_sessions,
     list_shares,
-    load_session,
     new_session,
+    resolve_session,
     save_session,
     search_sessions,
     share_session,
@@ -34,12 +37,15 @@ from forge_code.ui import (
     banner,
     console,
     error,
+    files_panel,
     help_text,
     info,
     ok,
+    provider_table,
     qa_panel,
     search_table,
     session_table,
+    show_copyable,
     speak,
     tool_line,
     tool_result,
@@ -58,7 +64,11 @@ REVIEW_PROMPT = (
 def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int:
     _enable_readline(root)
     if session_id:
-        session = load_session(root, session_id)
+        try:
+            session = resolve_session(root, session_id)
+        except FileNotFoundError as exc:
+            error(str(exc))
+            return 2
         history = list(session.messages)
         info(f"resumed session {session.id}")
     else:
@@ -144,6 +154,13 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
             info(t("budget_hit"))
         if result.qa is not None:
             qa_panel(result.qa)
+        if result.writes:
+            from forge_code.files import files_dir, save_turn
+
+            rels = save_turn(root, result.writes) or [p for p in result.writes if p]
+            files_panel(rels, str(files_dir(root)))
+            if not cfg.quiet:
+                show_copyable(root, rels)
         usage_line(cfg.resolved_model(), result.usage)
     return 0
 
@@ -190,6 +207,10 @@ def _enable_readline(root: Path) -> None:
         "/tools",
         "/model ",
         "/provider ",
+        "/providers",
+        "/set provider ",
+        "/set lang ",
+        "/api ",
         "/mode build",
         "/mode plan",
         "/qa",
@@ -208,8 +229,14 @@ def _enable_readline(root: Path) -> None:
         "/last",
         "/find ",
         "/pin",
+        "/new",
+        "/rename ",
+        "/copy",
+        "/files",
         "/commands",
         "/memory",
+        "/context",
+        "/terminal",
         "/alias ",
         "/budget",
         "/share",
@@ -279,11 +306,18 @@ def _slash(
         else:
             ok(f"model → {resolved}")
         return ""
-    if cmd == "provider" and arg:
-        cfg.provider = arg
-        save_config(cfg)
-        ok(f"provider → {arg}")
+    if cmd == "provider":
+        if not arg:
+            info(f"provider {cfg.provider} → {cfg.resolved_model()}")
+            return ""
+        return _slash_provider(cfg, arg)
+    if cmd == "providers":
+        _print_providers(cfg)
         return ""
+    if cmd == "set":
+        return _slash_set(cfg, arg)
+    if cmd == "api":
+        return _slash_api(cfg, arg)
     if cmd == "mode" and arg in {"build", "plan"}:
         cfg.mode = arg
         save_config(cfg)
@@ -319,6 +353,22 @@ def _slash(
             info(left)
         return ""
     if cmd == "sessions":
+        if arg == "rm" or arg.startswith("rm "):
+            sid = arg[2:].strip()
+            if not sid:
+                error(t("sessions_rm_usage"))
+                return ""
+            try:
+                target = resolve_session(root, sid)
+            except FileNotFoundError as exc:
+                error(str(exc))
+                return ""
+            if target.id == session.id:
+                error(t("cannot_delete_current"))
+                return ""
+            delete_session(root, target.id)
+            ok(t("deleted", id=target.id))
+            return ""
         rows = [
             (
                 item.id,
@@ -403,6 +453,62 @@ def _slash(
                 return ""
         info(t("no_reply"))
         return ""
+    if cmd == "files":
+        from forge_code.files import files_dir, load_last
+
+        rels = load_last(root)
+        if not rels:
+            info(t("empty_files"))
+            return ""
+        files_panel(rels, str(files_dir(root)))
+        show_copyable(root, rels)
+        return ""
+    if cmd == "copy":
+        from forge_code.files import read_for_copy
+
+        path, body = read_for_copy(root, arg or None)
+        text = body
+        if not text:
+            for message in reversed(history):
+                if message.role == "assistant" and message.content.strip():
+                    text = message.content
+                    path = ""
+                    break
+        if not text:
+            info(t("no_reply"))
+            return ""
+        if _copy_text(text):
+            ok(t("copied_file", path=path) if path else t("copied"))
+        else:
+            speak(f"```\n{text}\n```" if path else text)
+            info(t("no_clipboard"))
+        return ""
+    if cmd == "new":
+        save_session(root, session)
+        fresh = new_session(root, provider=cfg.provider, model=cfg.resolved_model())
+        session.id = fresh.id
+        session.created_at = fresh.created_at
+        session.updated_at = fresh.updated_at
+        session.title = arg[:80] if arg else ""
+        session.messages = []
+        session.usage = Usage()
+        session.provider = cfg.provider
+        session.model = cfg.resolved_model()
+        if arg:
+            save_session(root, session)
+        history.clear()
+        totals.prompt_tokens = 0
+        totals.completion_tokens = 0
+        ok(t("new_session", id=session.id))
+        return ""
+    if cmd == "rename":
+        if not arg:
+            error(t("rename_usage"))
+            return ""
+        session.title = arg[:80]
+        save_session(root, session)
+        ok(t("renamed", title=session.title))
+        return ""
     if cmd == "find":
         if not arg:
             error(t("find_usage"))
@@ -445,6 +551,21 @@ def _slash(
             info(t("empty_memory"))
         else:
             speak(text)
+        return ""
+    if cmd == "context":
+        from forge_code.project import ensure_context, save_context
+
+        if arg in {"refresh", "scan"}:
+            save_context(root)
+            ok("context refreshed")
+        text = ensure_context(root)
+        speak(text or "(empty context)")
+        return ""
+    if cmd == "terminal":
+        from forge_code.tools.terminal import load_terminal
+
+        text = load_terminal(root)
+        speak(text or "(empty terminal log)")
         return ""
     if cmd == "mcp":
         rows = describe_mcp(cfg.mcp)
@@ -580,3 +701,81 @@ def _slash_theme(cfg: AppConfig, arg: str) -> str:
     save_config(cfg)
     ok(f"theme → {arg}")
     return ""
+
+
+def _slash_set(cfg: AppConfig, arg: str) -> str:
+    if not arg:
+        info(f"provider {cfg.provider} → {cfg.resolved_model()}")
+        info(t("set_usage"))
+        return ""
+    parts = arg.split(maxsplit=1)
+    kind = parts[0].lower()
+    value = parts[1].strip() if len(parts) > 1 else ""
+    if kind in {"provider", "prov"}:
+        if not value:
+            _print_providers(cfg)
+            return ""
+        return _slash_provider(cfg, value)
+    if kind in {"api", "key", "apikey"}:
+        return _slash_api(cfg, value)
+    if kind == "model":
+        if not value:
+            error(t("set_usage"))
+            return ""
+        cfg.model = value
+        save_config(cfg)
+        ok(f"model → {cfg.resolved_model()}")
+        return ""
+    if kind in {"lang", "language"}:
+        if not value:
+            ok(t("lang_set", lang=cfg.lang))
+            return ""
+        try:
+            apply_lang(cfg, value)
+        except ValueError as exc:
+            error(str(exc))
+            return ""
+        ok(t("lang_set", lang=cfg.lang))
+        return ""
+    return _slash_provider(cfg, arg)
+
+
+def _slash_provider(cfg: AppConfig, name: str) -> str:
+    try:
+        provider = apply_provider(cfg, name)
+    except KeyError as exc:
+        error(str(exc))
+        return ""
+    ok(t("provider_set", provider=provider, model=cfg.resolved_model()))
+    if needs_api_key(cfg, provider):
+        info(t("need_api_repl"))
+    return ""
+
+
+def _slash_api(cfg: AppConfig, key: str) -> str:
+    if not key.strip():
+        error(t("api_usage"))
+        return ""
+    try:
+        name = apply_api_key(cfg, key)
+    except (KeyError, ValueError) as exc:
+        error(str(exc))
+        return ""
+    ok(t("api_saved", provider=name))
+    return ""
+
+
+def _print_providers(cfg: AppConfig) -> None:
+    rows: list[tuple[str, str, str, str]] = []
+    for name, spec in DEFAULT_PROVIDERS.items():
+        mark = "*" if name == cfg.provider else ""
+        aliases = ", ".join(aliases_for(name)[:3])
+        state = "local" if is_local(spec) else spec.get("key_env") or ""
+        rows.append((f"{name}{mark}", spec.get("default_model") or "", aliases, state))
+    provider_table(rows)
+
+
+def _copy_text(text: str) -> bool:
+    from forge_code.files import copy_to_clipboard
+
+    return copy_to_clipboard(text)

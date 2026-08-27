@@ -35,7 +35,7 @@ def complete(
     def _call() -> Completion:
         if kind == "anthropic":
             if not api_key or api_key == "local":
-                raise RuntimeError("Anthropic needs a key. Run: forge auth login anthropic")
+                raise RuntimeError("Anthropic needs a key. Run: forge set api YOUR_KEY")
             return anthropic.chat(
                 base_url=base_url,
                 api_key=api_key,
@@ -48,7 +48,7 @@ def complete(
             )
         if not api_key and spec.get("local") != "true":
             raise RuntimeError(
-                f"{cfg.provider} needs a key. Run: forge auth login {cfg.provider}"
+                f"{cfg.provider} needs a key. Run: forge set api YOUR_KEY"
             )
         return openai_compat.chat(
             base_url=base_url,

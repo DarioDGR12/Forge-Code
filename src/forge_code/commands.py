@@ -44,6 +44,21 @@ RESERVED = {
     "quiet",
     "find",
     "pin",
+    "new",
+    "rename",
+    "copy",
+    "files",
+    "set",
+    "api",
+    "providers",
+    "chat",
+    "menu",
+    "contribute",
+    "contributions",
+    "lang",
+    "language",
+    "context",
+    "terminal",
 }
 
 _NAME = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")

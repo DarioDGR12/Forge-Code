@@ -12,11 +12,14 @@ from forge_code.compact import compact_messages, estimate_chars
 from forge_code.config import AppConfig
 from forge_code.diagnostics import format_diagnostics, run_diagnostics
 from forge_code.diffview import preview_writes
+from forge_code.files import save_turn
 from forge_code.hooks import run_hook
 from forge_code.interrupt import CancelFlag, CancelledError
 from forge_code.mcp import load_mcp_tools
+from forge_code.mentions import expand_mentions
 from forge_code.models import Completion, Message
 from forge_code.permissions import PermissionGate
+from forge_code.project import refresh_if_markers
 from forge_code.prompts import system_prompt
 from forge_code.providers.factory import complete as default_complete
 from forge_code.qa.runner import QAReport, run_qa
@@ -72,6 +75,7 @@ class Agent:
         self.session_usage = session_usage or Usage()
 
     def run(self, history: list[Message], user_text: str) -> TurnResult:
+        user_text = expand_mentions(self.root, user_text)
         messages = list(history)
         if not messages or messages[0].role != "system":
             messages.insert(0, Message(role="system", content=system_prompt(self.root, self.cfg.mode)))
@@ -178,6 +182,7 @@ class Agent:
                     )
                     self.on_event("tool_result", result[:800])
                 if writes:
+                    refresh_if_markers(self.root, writes)
                     diff = preview_writes(self.root, writes)
                     if diff:
                         self.on_event("diff", diff)
@@ -216,6 +221,8 @@ class Agent:
                 last_text = last_text or "Stopped: max tool steps reached."
         except CancelledError:
             run_hook(self.root, "post_turn", {"FORGE_TASK": user_text[:200]})
+            if writes:
+                save_turn(self.root, writes)
             history.clear()
             history.extend(messages)
             return TurnResult(
@@ -230,6 +237,8 @@ class Agent:
             )
 
         run_hook(self.root, "post_turn", {"FORGE_TASK": user_text[:200]})
+        if writes:
+            save_turn(self.root, writes)
         history.clear()
         history.extend(messages)
         return TurnResult(
@@ -288,4 +297,10 @@ def _preview_args(name: str, arguments: dict) -> str:
         return f"memory_write {arguments.get('note', '')}"[:80]
     if name == "memory_read":
         return "memory_read"
+    if name == "project_map":
+        return "project_map"
+    if name == "terminal_read":
+        return "terminal_read"
+    if name == "outline":
+        return f"outline {arguments.get('path', '')}"
     return f"{name} {arguments}"

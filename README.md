@@ -1,83 +1,137 @@
-# Forge
+<div align="center">
+
+<img src="docs/assets/openforge-logo.gif" width="168" alt="Open Forge logo">
+
+# OPEN FORGE
 
 **An open-source AI coding agent for the terminal.**
 
 Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box.
-After every edit, Forge runs **integrated QA** and feeds failures back to the
-model until the suite is green.
+After every edit, Forge runs **integrated QA** until the suite is green.
 
-Apache License 2.0 · v0.9.0  
+<img src="docs/assets/openforge-banner.jpg" width="720" alt="Open Forge — terminal coding agent">
+
+![Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-22d3ee?style=flat-square)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0ea5e9?style=flat-square)
+![v0.18.0](https://img.shields.io/badge/version-0.18.0-f59e0b?style=flat-square)
+
 Not affiliated with OpenCode or Anthropic.
 
-```
-$ forge
+![OPEN FORGE home menu](docs/assets/openforge-menu.gif)
 
-  Forge  v0.9.0
-  session  a1b2c3d4e5f6
-  repo     ~/src/app
-  model    ollama/qwen2.5-coder:7b
-  mode     build    qa on    bash allow
+</div>
 
-❯ fix the failing tests
-
-  ▸ read_file src/add.py
-  ▸ edit_file src/add.py
-  QA: passed · pytest 412ms
-  1,204 tokens (980 in / 224 out)
-```
+`forge` or `forge menu` opens that window. Arrow keys or a number, then Enter. `q` goes back.
 
 ## Install
 
-Python 3.10+.
-
-From a clone:
+Python 3.10+. **Use a virtualenv.** Debian, Ubuntu, and Pop!_OS block system `pip`
+(`externally-managed-environment`). Do not use `--break-system-packages`.
 
 ```bash
+# Debian / Ubuntu / Pop!_OS — skip if `python3 -m venv` already works
+sudo apt install -y python3-venv python3-full
+
 git clone https://github.com/DarioDGR12/Forge-Code.git
 cd Forge-Code
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install -U pip
 pip install -e ".[dev]"
-forge --help
+
+which forge
+# must be …/Forge-Code/.venv/bin/forge
+
+forge --version
+# forge 0.18.0
+
+forge
 ```
 
-Or:
+From a clone you can also run `./install.sh` (creates `.venv` and prints the binary path).
+
+**Every new terminal**, activate first or call the binary by path:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DarioDGR12/Forge-Code/main/install.sh | bash
+source ~/Forge-Code/.venv/bin/activate    # then: forge
+~/Forge-Code/.venv/bin/forge              # no activate
+~/Forge-Code/.venv/bin/python -m forge_code
 ```
 
-`forge` with no arguments opens the interactive agent.
+`forge --version` must print `forge 0.18.0`. If you see `forge vibe`, “marketplace”,
+or `unrecognized arguments: menu` / `context`, that is a **different program** named
+`forge`. `which forge` shows which one. Activate the venv (or use the paths above).
 
-Spanish prompts: `export FORGE_LANG=es` (also honors `LANG=es_*` for `/bash ask`).
+### OPEN FORGE (chats, providers, help)
+
+<div align="center">
+
+![OPEN FORGE chats](docs/assets/openforge-chats.gif)
+
+</div>
+
+`forge` or `forge menu` opens the window. Arrow keys or a number, then Enter. `q` goes back.
+
+1. **resume** → last chat (only if you already have one)
+2. **providers** → pick Mistral / OpenAI / DeepSeek / Kimi / … → paste the API key → chat starts
+3. **chats** → new, search, open / rename / delete a session
+4. **models** → switch model
+5. **config** → qa / bash / theme / quiet / language
+6. **contributions** → recommend an improvement (opens mail to dariopro.1212@gmail.com — hit Send) or open the GitHub repo to contribute code
+7. **help** → about, commands, doctor (API / Ollama / llama.cpp / cwd / context), language
+8. **forge** → open chat (if a key is already saved)
+
+First run without a key prints a short setup and the provider list. Ollama needs no key.
+
+Skip the menu: `forge chat`, `forge --repl`, `forge --resume ID`, `forge -c`, or `FORGE_MENU=0`.
+
+Spanish: **help** → language → `es`, or `forge set lang es` (`FORGE_LANG` / `LANG=es_*` still win).
 
 ## Bring your own key
 
-Keys live in `~/.config/forge-code/credentials.json` (mode `600`).
-They only go to the provider you chose.
+Two steps inside the menu (**providers** → paste key), or the same from the shell:
 
 ```bash
-forge auth login openai
-forge auth login anthropic
-forge auth login openrouter
-forge auth login groq
-forge auth status
+forge providers
+forge set provider mistralai
+forge set api sk-your-key
+forge
 ```
 
-| Provider   | Variable             | Default endpoint                         |
-| ---------- | -------------------- | ---------------------------------------- |
-| OpenAI     | `OPENAI_API_KEY`     | `https://api.openai.com/v1`              |
-| Anthropic  | `ANTHROPIC_API_KEY`  | `https://api.anthropic.com`              |
-| OpenRouter | `OPENROUTER_API_KEY` | `https://openrouter.ai/api/v1`           |
-| Groq       | `GROQ_API_KEY`       | `https://api.groq.com/openai/v1`         |
-| Custom     | `FORGE_API_KEY`      | `FORGE_BASE_URL` (any OpenAI-compatible) |
+In the REPL:
+
+```
+/set provider kimi
+/api sk-your-key
+```
+
+`mistralai`, `moonshot`, `google`, `grok`, `claude`, and `chatgpt` are aliases.
+
+Keys live in `~/.config/forge-code/credentials.json` (mode `600`). They only go to the provider you chose.
+
+| Provider | Also | Env var |
+| --- | --- | --- |
+| `openai` | chatgpt | `OPENAI_API_KEY` |
+| `anthropic` | claude | `ANTHROPIC_API_KEY` |
+| `mistral` | mistralai, codestral | `MISTRAL_API_KEY` |
+| `deepseek` | | `DEEPSEEK_API_KEY` |
+| `kimi` | moonshot | `MOONSHOT_API_KEY` |
+| `gemini` | google | `GEMINI_API_KEY` |
+| `xai` | grok | `XAI_API_KEY` |
+| `openrouter` | | `OPENROUTER_API_KEY` |
+| `groq` | | `GROQ_API_KEY` |
+| `together` `fireworks` `cerebras` `perplexity` `cohere` | | their `*_API_KEY` |
+| `hf` `nvidia` `dashscope`/`qwen` `glm`/`zhipu` | | `HF_TOKEN` / `NVIDIA_API_KEY` / `DASHSCOPE_API_KEY` / `ZHIPUAI_API_KEY` |
+| `minimax` `siliconflow` `deepinfra` `sambanova` `novita` `ark`/`doubao` `yi` `github` | | matching env |
+| `ollama` `llamacpp` `lmstudio` `custom` | local, no key | optional |
+
+`forge auth login mistral` still works (prompts for the key). `forge auth status` shows what is configured.
 
 OpenAI-compatible and Anthropic responses stream token-by-token. Ctrl+C cancels.
 
 ```bash
-export OPENAI_API_KEY=sk-...
-export FORGE_PROVIDER=openai
-export FORGE_MODEL=gpt-4.1-mini
+forge set provider openai
+forge set api sk-...
 forge run "add an install section to the README"
 ```
 
@@ -87,9 +141,7 @@ forge run "add an install section to the README"
 
 ```bash
 ollama pull qwen2.5-coder:7b
-forge auth login ollama
-export FORGE_PROVIDER=ollama
-export FORGE_MODEL=qwen2.5-coder:7b
+forge set provider ollama
 forge
 ```
 
@@ -159,50 +211,84 @@ Pin extra checks in `.forge/config.json`:
 
 | Command | What it does |
 | --- | --- |
-| `forge` | Interactive agent (REPL) |
+| `forge` | OPEN FORGE menu (resume, providers, chats, models, config, contributions, help) |
+| `forge menu` | Same as bare `forge` |
+| `forge chat` | Skip the menu, open the chat |
 | `forge --resume ID` | Continue a saved session |
+| `forge -c` / `--continue` | Resume the latest session |
+| `forge --model NAME` | Model or alias for this invocation |
+| `forge --provider NAME` | Provider for this invocation |
 | `forge run "task"` | One shot |
 | `forge run --plan "task"` | One shot, read-only |
 | `forge run -q "task"` | One shot, no transcript |
+| `forge run --model fast "task"` | One shot with a model override |
+| `forge run -` | One shot, task from stdin |
 | `forge ask "question"` | Read-only Q&A (plan mode) |
 | `forge run "task" --json` | Machine-readable result |
-| `forge auth login <p>` | BYOK |
+| `forge providers` | List built-in vendors |
+| `forge set provider NAME` | Switch vendor (mistralai, deepseek, kimi, …) |
+| `forge set api KEY` / `forge api KEY` | Save the key for the current vendor |
+| `forge set lang auto\|en\|es` | Menu/REPL language (`auto` follows `LANG`) |
+| `forge auth login <p>` | Same as set provider + prompt for key |
 | `forge models` | Local + remote models |
 | `forge qa` | Run the detected suite |
 | `forge sessions` | List saved conversations |
 | `forge sessions search QUERY` | Search titles and messages |
 | `forge find QUERY` | Same as `sessions search` |
 | `forge sessions export ID` | Write a markdown transcript |
+| `forge sessions rm ID` | Delete a saved session |
 | `forge tools` | List agent tools |
 | `forge mcp` | List configured MCP servers |
 | `forge init` | Scaffold `AGENTS.md`, `.forgeignore`, skills, commands |
-| `forge doctor` | Health check |
+| `forge doctor` | Health check (provider, API, Ollama, cwd, context, last bash) |
 | `forge undo` | Revert the last agent edits |
 | `forge diff` | Last agent edits or current git diff |
 | `forge commands` | List `.forge/commands/*.md` slash commands |
 | `forge memory` | Print `.forge/memory.md` |
+| `forge context` | Show `.forge/context.md` (stack, tests, layout, scripts, entry points) |
+| `forge context --refresh` | Rescan the workspace and rewrite context |
+| `forge terminal` | Print recent shell log (`.forge/terminal.md`) |
+| `forge files` | Last written files (copy-friendly). `--copy` puts the last one on the clipboard |
 | `forge worktree add\|list\|remove` | Isolated git worktrees under `.worktrees/` |
 | `forge alias` | List / set / remove model aliases |
 | `forge budget` | Show the session cost/token cap |
 | `forge share [ID]` | Write a markdown share under `.forge/shares/` |
 | `forge shares` | List saved shares |
 | `forge theme [name]` | Show or set the REPL color |
+| `forge contribute` | Show how to recommend an idea or contribute code |
+| `forge contribute recommend "…"` | Open mail to dariopro.1212@gmail.com (hit Send) |
+| `forge contribute code` | Open the GitHub repo |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/set lang` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/copy path` `/files` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/context` `/terminal` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
+
+Type `@src/file.py` (optional `:10-20`) to attach file contents to the prompt.
 
 Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
 ## Tools
 
-`read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore` `memory_read` `memory_write`
+<div align="center">
+
+![Forge agent turn](docs/assets/openforge-agent.gif)
+
+</div>
+
+`read_file` `write_file` `edit_file` `apply_patch` `list_dir` `tree` `glob` `grep` `outline` `bash` `git_status` `git_diff` `git_log` `git_commit` `todo_write` `todo_read` `fetch_url` `explore` `memory_read` `memory_write` `project_map` `terminal_read`
 
 - **explore** — read-only nested search (plan-mode tools only; cannot recurse)
 - **fetch_url** — public documentation, 80 KB cap, HTML stripped
 - **git_commit** — `git add -- <paths>` then `git commit -m`
 - **memory_*** — append-only facts in `.forge/memory.md` (no secrets)
+- **outline** — list `def` / `class` / `fn` / `func` / `function` in a file without dumping it
+- **grep** — optional `path` jails the search to one file or directory
+- **project_map** — scan the repo and write `.forge/context.md` (stack, tests, layout, git, scripts, entry points). Auto-refreshes when `pyproject.toml` / `package.json` / etc. change
+- **terminal_read** — recent `bash` commands and output in `.forge/terminal.md`
+- **bash** — `cwd` is workspace-jailed and persists; `cd src && ls` actually runs in `src`
 
-After writes, the REPL shows a unified diff of the turn. `/diff` and `forge diff` replay it (or fall back to `git diff`).
+The system prompt loads `.forge/context.md`, nested `AGENTS.md` / `FORGE.md`, the shell cwd / last exit, and the last shell snippets every turn. `forge context --refresh` or `/context refresh` rebuilds the map. Secrets in the terminal log are redacted.
+
+After writes, Forge prints the new code in a copy-friendly block, saves a copy under `files/` (open that folder in Files / Finder), and `/copy` puts the last file on the clipboard. `/diff` and `forge diff` replay the unified diff.
 
 ## Custom commands
 
@@ -269,6 +355,15 @@ Caps also accept `FORGE_MAX_COST`, `FORGE_MAX_TOKENS`, `FORGE_MAX_COST_TURN`, an
 `/share` and `forge share` write `.forge/shares/<session>.md`. `forge shares` lists them.
 
 Search past chats with `forge find "auth"` or `/find auth`. `/pin` appends the last assistant reply (or a note) to `.forge/memory.md`.
+
+`forge -c` resumes the latest session. `/new` starts a blank one; `/rename` titles it; `forge sessions rm ID` deletes it. `@path` in a prompt (REPL or `forge run`) attaches the file.
+
+```bash
+forge -c
+forge run --model local --provider ollama "fix @src/add.py"
+echo "summarize the repo" | forge run -
+# REPL: /new hotfix   /rename auth review   /copy   /sessions rm ab12
+```
 
 ## Hooks
 
@@ -338,13 +433,17 @@ Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can 
 
 | File | Purpose |
 | --- | --- |
-| `AGENTS.md` / `FORGE.md` | Instructions injected every turn |
+| `AGENTS.md` / `FORGE.md` | Instructions injected every turn (root and nested, capped) |
 | `.forgeignore` | Hide paths from glob/grep/tree |
 | `.forge/config.json` | Repo overlay (provider, QA, permissions, MCP) |
 | `.forge/hooks/` | `pre_edit` / `post_edit` / `post_turn` scripts |
 | `.forge/skills/*.md` | Extra system-prompt skills |
 | `.forge/commands/*.md` | Custom slash commands |
 | `.forge/memory.md` | Persistent notes (`memory_write`) |
+| `.forge/context.md` | Generated project map (`project_map`) |
+| `.forge/terminal.md` | Recent shell log (`bash` / `terminal_read`) |
+| `files/` | Copies of the last turn’s written files (`/copy`, `/files`, `forge files`) |
+| `.forge/shell.json` | Persisted bash cwd |
 | `.forge/shares/` | Markdown exports from `/share` |
 | `.worktrees/` | Isolated checkouts from `forge worktree add` |
 | `~/.config/forge-code/` | User config + credentials |
@@ -352,6 +451,8 @@ Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can 
 ## Quick demo (no API)
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
 forge qa --repo examples/broken-add    # red on purpose

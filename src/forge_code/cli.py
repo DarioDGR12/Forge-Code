@@ -7,26 +7,38 @@ import argparse
 import json
 import os
 import sys
+from getpass import getpass
 from pathlib import Path
 
 from forge_code import __version__
 from forge_code.agent import Agent, undo_turn
-from forge_code.auth import login, logout, status_rows
+from forge_code.auth import (
+    apply_api_key,
+    apply_provider,
+    login,
+    logout,
+    needs_api_key,
+    status_rows,
+)
 from forge_code.commands import load_commands
-from forge_code.config import load_config, save_config
+from forge_code.config import load_config, save_config, apply_lang
 from forge_code.diffview import visible_diff
 from forge_code.i18n import t
 from forge_code.mcp import close_mcp, describe_mcp
 from forge_code.models import Message
+from forge_code.providers.catalog import DEFAULT_PROVIDERS, aliases_for, is_local, resolve_provider
 from forge_code.providers.factory import list_remote_models, probe_local
 from forge_code.qa.runner import run_qa
 from forge_code.repl import start_repl
+from forge_code.tui import start_menu
 from forge_code.scaffold import init_workspace
 from forge_code.session import (
+    delete_session,
     export_markdown,
+    latest_session,
     list_sessions,
     list_shares,
-    load_session,
+    resolve_session,
     search_sessions,
     share_session,
 )
@@ -37,8 +49,10 @@ from forge_code.ui import (
     auth_table,
     console,
     error,
+    info,
     mcp_table,
     ok,
+    provider_table,
     qa_panel,
     search_table,
     session_table,
@@ -58,22 +72,38 @@ def main(argv: list[str] | None = None) -> int:
     common.add_argument("--repo", default=".", help="workspace root")
     parser.add_argument("--repo", default=".", help="workspace root")
     parser.add_argument("--resume", help="resume a session id in the REPL")
+    parser.add_argument(
+        "-c",
+        "--continue",
+        dest="continue_last",
+        action="store_true",
+        help="resume the latest session",
+    )
+    parser.add_argument("--model", help="model or alias (this invocation)")
+    parser.add_argument("--provider", help="provider (this invocation)")
+    parser.add_argument("--repl", action="store_true", help="skip the menu and open chat")
     sub = parser.add_subparsers(dest="cmd")
 
     run = sub.add_parser("run", help="one-shot non-interactive task", parents=[common])
-    run.add_argument("task", help="what to do")
+    run.add_argument("task", help="what to do, or - to read stdin")
     run.add_argument("--json", action="store_true")
     run.add_argument("--plan", action="store_true", help="read-only (no edits)")
     run.add_argument("--quiet", "-q", action="store_true", help="no transcript output")
+    run.add_argument("--model", help="model or alias (this invocation)")
+    run.add_argument("--provider", help="provider (this invocation)")
 
     ask = sub.add_parser("ask", help="read-only question (plan mode)", parents=[common])
-    ask.add_argument("question", help="what to inspect")
+    ask.add_argument("question", help="what to inspect, or - to read stdin")
     ask.add_argument("--quiet", "-q", action="store_true")
+    ask.add_argument("--model", help="model or alias (this invocation)")
+    ask.add_argument("--provider", help="provider (this invocation)")
 
     ci = sub.add_parser("ci", help="non-interactive run for GitHub Actions", parents=[common])
     ci.add_argument("--task", help="task text (or $FORGE_TASK / event)")
     ci.add_argument("--json", action="store_true")
     ci.add_argument("--quiet", "-q", action="store_true")
+    ci.add_argument("--model", help="model or alias (this invocation)")
+    ci.add_argument("--provider", help="provider (this invocation)")
 
     sub.add_parser("undo", help="revert the last agent edits", parents=[common])
 
@@ -96,6 +126,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("diff", help="show last agent edits or git diff", parents=[common])
     sub.add_parser("commands", help="list custom slash commands", parents=[common])
     sub.add_parser("memory", help="print .forge/memory.md", parents=[common])
+    ctx_p = sub.add_parser("context", help="show or refresh .forge/context.md", parents=[common])
+    ctx_p.add_argument("--refresh", action="store_true", help="rescan the workspace")
+    sub.add_parser("terminal", help="print .forge/terminal.md", parents=[common])
+    files_p = sub.add_parser("files", help="show last written files (copy-friendly)", parents=[common])
+    files_p.add_argument("--copy", action="store_true", help="copy the last file to the clipboard")
 
     worktree = sub.add_parser("worktree", help="isolated git worktrees", parents=[common])
     worktree.add_argument("action", choices=["add", "list", "remove"])
@@ -118,23 +153,68 @@ def main(argv: list[str] | None = None) -> int:
     theme_p.add_argument("name", nargs="?")
 
     sessions = sub.add_parser("sessions", help="list or export saved sessions", parents=[common])
-    sessions.add_argument("action", nargs="?", default="list", choices=["list", "show", "export", "search"])
+    sessions.add_argument(
+        "action", nargs="?", default="list", choices=["list", "show", "export", "search", "rm"]
+    )
     sessions.add_argument("session_id", nargs="?")
     sessions.add_argument("--out", help="markdown path for export")
 
     find = sub.add_parser("find", help="search saved sessions", parents=[common])
     find.add_argument("query", nargs="+")
 
+    set_p = sub.add_parser("set", help="set provider, api key, or model")
+    set_p.add_argument("what", nargs="?", help="provider | api | model | NAME")
+    set_p.add_argument("value", nargs="*", help="value")
+
+    api_p = sub.add_parser("api", help="save the API key for the current provider")
+    api_p.add_argument("key", nargs="*", help="API key (prompt if omitted)")
+
+    sub.add_parser("providers", help="list built-in providers")
+    sub.add_parser("chat", help="open the chat REPL", parents=[common])
+    sub.add_parser("menu", help="open the OPEN FORGE menu", parents=[common])
+
+    contrib = sub.add_parser(
+        "contribute",
+        help="send a recommendation or open the GitHub repo",
+    )
+    contrib.add_argument(
+        "action",
+        nargs="?",
+        choices=["recommend", "code"],
+        help="recommend an improvement, or open GitHub",
+    )
+    contrib.add_argument("message", nargs="*", help="recommendation text")
+
     args = parser.parse_args(argv)
     root = Path(args.repo).resolve()
     cfg = load_config()
+    try:
+        _apply_overrides(cfg, args)
+    except KeyError as exc:
+        error(str(exc))
+        return 2
 
     if args.cmd is None:
-        return start_repl(root, cfg, session_id=args.resume)
+        sid = args.resume
+        if not sid and getattr(args, "continue_last", False):
+            latest = latest_session(root)
+            sid = latest.id if latest else None
+        skip_menu = bool(sid or getattr(args, "repl", False))
+        if skip_menu or os.environ.get("FORGE_MENU", "1").lower() in {"0", "off", "false", "no"}:
+            return start_repl(root, cfg, session_id=sid)
+        return start_menu(root, cfg)
     if args.cmd == "run":
-        return _cmd_run(root, cfg, args.task, args.json, plan=args.plan, quiet=args.quiet)
+        task = _maybe_stdin(args.task)
+        if not task:
+            error("task required (or pass - to read stdin)")
+            return 2
+        return _cmd_run(root, cfg, task, args.json, plan=args.plan, quiet=args.quiet)
     if args.cmd == "ask":
-        return _cmd_run(root, cfg, args.question, False, plan=True, quiet=args.quiet)
+        question = _maybe_stdin(args.question)
+        if not question:
+            error("question required (or pass - to read stdin)")
+            return 2
+        return _cmd_run(root, cfg, question, False, plan=True, quiet=args.quiet)
     if args.cmd == "ci":
         return _cmd_ci(root, cfg, args)
     if args.cmd == "undo":
@@ -177,6 +257,16 @@ def main(argv: list[str] | None = None) -> int:
         text = load_memory(root)
         console.print(text or t("empty_memory"))
         return 0
+    if args.cmd == "context":
+        return _cmd_context(root, refresh=bool(args.refresh))
+    if args.cmd == "terminal":
+        from forge_code.tools.terminal import load_terminal
+
+        text = load_terminal(root)
+        console.print(text or "(empty terminal log)")
+        return 0
+    if args.cmd == "files":
+        return _cmd_files(root, copy=bool(getattr(args, "copy", False)))
     if args.cmd == "worktree":
         return _cmd_worktree(root, args)
     if args.cmd == "alias":
@@ -202,6 +292,18 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_sessions(root, args)
     if args.cmd == "find":
         return _cmd_find(root, " ".join(args.query))
+    if args.cmd == "set":
+        return _cmd_set(cfg, args)
+    if args.cmd == "api":
+        return _cmd_api(cfg, " ".join(args.key))
+    if args.cmd == "providers":
+        return _cmd_providers(cfg)
+    if args.cmd == "chat":
+        return start_repl(root, cfg)
+    if args.cmd == "menu":
+        return start_menu(root, cfg)
+    if args.cmd == "contribute":
+        return _cmd_contribute(args)
     error(f"unknown command {args.cmd}")
     return 2
 
@@ -237,6 +339,13 @@ def _cmd_run(root: Path, cfg, task: str, as_json: bool, plan: bool = False, quie
                 speak(result.text)
             if result.qa is not None:
                 qa_panel(result.qa)
+            if result.writes:
+                from forge_code.files import files_dir, save_turn
+                from forge_code.ui import files_panel, show_copyable
+
+                rels = save_turn(root, result.writes) or [p for p in result.writes if p]
+                files_panel(rels, str(files_dir(root)))
+                show_copyable(root, rels)
     if result.interrupted:
         return 130
     return 0 if (result.qa is None or result.qa.ok) else 1
@@ -277,14 +386,18 @@ def _task_from_github() -> str:
 def _cmd_auth(args: argparse.Namespace) -> int:
     if args.auth_cmd == "login":
         try:
-            login(args.provider, api_key=args.key, base_url=args.base_url)
+            name = login(args.provider, api_key=args.key, base_url=args.base_url)
         except KeyError as exc:
             error(str(exc))
             return 2
-        console.print(f"provider set to [cyan]{args.provider}[/]")
+        console.print(f"provider set to [cyan]{name}[/]")
         return 0
     if args.auth_cmd == "logout":
-        logout(args.provider)
+        try:
+            logout(args.provider)
+        except KeyError as exc:
+            error(str(exc))
+            return 2
         console.print(f"removed key for {args.provider}")
         return 0
     auth_table(status_rows())
@@ -427,7 +540,7 @@ def _cmd_theme(cfg, name: str | None) -> int:
 def _cmd_share(root: Path, args: argparse.Namespace) -> int:
     if args.session_id:
         try:
-            session = load_session(root, args.session_id)
+            session = resolve_session(root, args.session_id)
         except FileNotFoundError as exc:
             error(str(exc))
             return 2
@@ -446,6 +559,35 @@ def _cmd_share(root: Path, args: argparse.Namespace) -> int:
 def _cmd_init(root: Path) -> int:
     for rel, state in init_workspace(root):
         console.print(f"{state:6} {rel}")
+    return 0
+
+
+def _cmd_context(root: Path, refresh: bool = False) -> int:
+    from forge_code.project import ensure_context, save_context
+
+    if refresh:
+        save_context(root)
+    text = ensure_context(root)
+    console.print(text or "(empty context)")
+    return 0
+
+
+def _cmd_files(root: Path, copy: bool = False) -> int:
+    from forge_code.files import copy_to_clipboard, files_dir, load_last, read_for_copy
+    from forge_code.ui import files_panel, show_copyable
+
+    rels = load_last(root)
+    if not rels:
+        console.print(t("empty_files"))
+        return 0
+    files_panel(rels, str(files_dir(root)))
+    show_copyable(root, rels)
+    if copy:
+        path, text = read_for_copy(root)
+        if text and copy_to_clipboard(text):
+            ok(t("copied_file", path=path))
+        elif text:
+            info(t("no_clipboard"))
     return 0
 
 
@@ -479,11 +621,22 @@ def _cmd_sessions(root: Path, args: argparse.Namespace) -> int:
             error("search query required")
             return 2
         return _cmd_find(root, args.session_id)
+    if args.action == "rm":
+        if not args.session_id:
+            error("session id required")
+            return 2
+        try:
+            deleted = delete_session(root, args.session_id)
+        except FileNotFoundError as exc:
+            error(str(exc))
+            return 2
+        ok(f"deleted {deleted}")
+        return 0
     if not args.session_id:
         error("session id required")
         return 2
     try:
-        session = load_session(root, args.session_id)
+        session = resolve_session(root, args.session_id)
     except FileNotFoundError as exc:
         error(str(exc))
         return 2
@@ -496,6 +649,113 @@ def _cmd_sessions(root: Path, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_set(cfg, args: argparse.Namespace) -> int:
+    what = (args.what or "").strip()
+    value = " ".join(args.value).strip()
+    if not what:
+        console.print(f"provider {cfg.provider}  model {cfg.resolved_model()}")
+        console.print(t("set_usage"))
+        return 0
+    kind = what.lower()
+    if kind in {"provider", "prov"}:
+        if not value:
+            return _cmd_providers(cfg)
+        return _switch_provider(cfg, value)
+    if kind in {"api", "key", "apikey"}:
+        return _cmd_api(cfg, value)
+    if kind == "model":
+        if not value:
+            error(t("set_usage"))
+            return 2
+        cfg.model = value
+        save_config(cfg)
+        ok(f"model → {cfg.resolved_model()}")
+        return 0
+    if kind in {"lang", "language"}:
+        if not value:
+            ok(t("lang_set", lang=cfg.lang))
+            return 0
+        try:
+            apply_lang(cfg, value)
+        except ValueError as exc:
+            error(str(exc))
+            return 2
+        ok(t("lang_set", lang=cfg.lang))
+        return 0
+    return _switch_provider(cfg, what)
+
+
+def _switch_provider(cfg, name: str) -> int:
+    try:
+        provider = apply_provider(cfg, name)
+    except KeyError as exc:
+        error(str(exc))
+        return 2
+    ok(t("provider_set", provider=provider, model=cfg.resolved_model()))
+    if needs_api_key(cfg, provider):
+        info(t("need_api"))
+    return 0
+
+
+def _cmd_api(cfg, key: str) -> int:
+    secret = key.strip()
+    if not secret:
+        secret = getpass("API key: ").strip()
+    try:
+        name = apply_api_key(cfg, secret)
+    except (KeyError, ValueError) as exc:
+        error(str(exc))
+        return 2
+    ok(t("api_saved", provider=name))
+    return 0
+
+
+def _cmd_providers(cfg) -> int:
+    rows: list[tuple[str, str, str, str]] = []
+    for name, spec in DEFAULT_PROVIDERS.items():
+        mark = "*" if name == cfg.provider else ""
+        aliases = ", ".join(aliases_for(name)[:3])
+        state = "local" if is_local(spec) else spec.get("key_env") or ""
+        rows.append((f"{name}{mark}", spec.get("default_model") or "", aliases, state))
+    provider_table(rows)
+    return 0
+
+
+def _cmd_contribute(args: argparse.Namespace) -> int:
+    from forge_code.contribute import (
+        FEEDBACK_EMAIL,
+        contribute_guide,
+        open_github,
+        send_recommendation,
+    )
+
+    action = args.action
+    message = " ".join(args.message).strip()
+    if action == "code":
+        console.print(contribute_guide())
+        open_github()
+        return 0
+    if action is None:
+        console.print(contribute_guide())
+        console.print(t("contrib_cli_help", email=FEEDBACK_EMAIL))
+        return 0
+    if not message:
+        console.print(t("contrib_body_hint", email=FEEDBACK_EMAIL))
+        try:
+            message = input(f"{t('contrib_body_prompt')}: ").strip()
+        except EOFError:
+            message = ""
+    if not message:
+        error(t("contrib_empty"))
+        return 2
+    name = os.environ.get("USER") or os.environ.get("USERNAME") or "anonymous"
+    path, opened = send_recommendation(message, name)
+    console.print(t("contrib_saved", path=str(path)))
+    key = "contrib_mailto_opened" if opened else "contrib_mailto_failed"
+    console.print(t(key, email=FEEDBACK_EMAIL))
+    return 0
+
+
 def _cmd_find(root: Path, query: str) -> int:
     hits = search_sessions(root, query)
     if not hits:
@@ -505,6 +765,21 @@ def _cmd_find(root: Path, query: str) -> int:
         [(hit.session_id, hit.role, hit.title, hit.snippet) for hit in hits]
     )
     return 0
+
+
+def _apply_overrides(cfg, args: argparse.Namespace) -> None:
+    model = getattr(args, "model", None)
+    provider = getattr(args, "provider", None)
+    if model:
+        cfg.model = model
+    if provider:
+        cfg.provider = resolve_provider(provider)
+
+
+def _maybe_stdin(value: str) -> str:
+    if value != "-":
+        return value
+    return sys.stdin.read().strip()
 
 
 if __name__ == "__main__":

@@ -46,6 +46,8 @@ def test_agent_edits_then_stops(tmp_path: Path) -> None:
     assert "Updated" in result.text
     assert (tmp_path / "note.txt").read_text(encoding="utf-8") == "hola\n"
     assert "note.txt" in result.writes
+    assert (tmp_path / "files" / "note.txt").is_file()
+    assert (tmp_path / "files" / "note.txt").read_text(encoding="utf-8") == "hola\n"
 
 
 def test_agent_auto_qa_feeds_failure(tmp_path: Path) -> None:
@@ -101,3 +103,56 @@ def test_agent_auto_qa_feeds_failure(tmp_path: Path) -> None:
     assert (tmp_path / "bad.py").read_text(encoding="utf-8") == "def add(a, b):\n    return a + b\n"
     assert result.qa is not None
     assert result.qa.ok
+
+
+def test_agent_expands_mentions(tmp_path: Path) -> None:
+    (tmp_path / "note.txt").write_text("hello from disk\n", encoding="utf-8")
+    seen: list[str] = []
+
+    def fake_complete(_cfg, messages, _tools):
+        seen.append(messages[-1].content)
+        return Completion(message=Message(role="assistant", content="ok"), finish="stop")
+
+    cfg = AppConfig(provider="ollama", model="local", qa=QAConfig(auto=False))
+    Agent(tmp_path, cfg, complete_fn=fake_complete).run([], "look at @note.txt")
+    assert "hello from disk" in seen[0]
+    assert "<attached files>" in seen[0]
+
+
+def test_agent_refreshes_context_on_marker_write(tmp_path: Path) -> None:
+    forge = tmp_path / ".forge"
+    forge.mkdir()
+    (forge / "context.md").write_text("# old\n", encoding="utf-8")
+    calls = iter(
+        [
+            Completion(
+                message=Message(
+                    role="assistant",
+                    tool_calls=[
+                        ToolCall(
+                            id="1",
+                            name="write_file",
+                            arguments={
+                                "path": "pyproject.toml",
+                                "content": "[project]\nname='demo'\nversion='0'\n",
+                            },
+                        )
+                    ],
+                ),
+                finish="tool",
+            ),
+            Completion(
+                message=Message(role="assistant", content="mapped"),
+                finish="stop",
+            ),
+        ]
+    )
+
+    def fake_complete(_cfg, _messages, _tools):
+        return next(calls)
+
+    cfg = AppConfig(provider="ollama", model="local", qa=QAConfig(auto=False))
+    Agent(tmp_path, cfg, complete_fn=fake_complete).run([], "add pyproject")
+    text = (forge / "context.md").read_text(encoding="utf-8")
+    assert "python" in text
+    assert "# old" not in text
