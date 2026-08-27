@@ -11,6 +11,7 @@ from forge_code.session import (
     list_sessions,
     load_session,
     new_session,
+    rename_session,
     resolve_session,
     save_session,
     search_sessions,
@@ -60,6 +61,8 @@ def test_resolve_latest_and_delete(tmp_path: Path, monkeypatch) -> None:
     assert loaded.id == second.id
     assert delete_session(tmp_path, second.id[:6]) == second.id
     assert latest_session(tmp_path).id == first.id
+    renamed = rename_session(tmp_path, first.id, "renamed in tests")
+    assert renamed.title == "renamed in tests"
     try:
         resolve_session(tmp_path, "nope")
     except FileNotFoundError:

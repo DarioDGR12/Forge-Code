@@ -6,7 +6,7 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.14.0  
+Apache License 2.0 · v0.15.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
@@ -15,7 +15,8 @@ $ forge
 ┌──────────── O P E N   F O R G E ────────────┐
 │  openai / gpt-4.1-mini    no key            │
 │                                             │
-│  › providers                                │
+│  › resume  a1b2c3d4  last task              │
+│    providers                                │
 │    chats                                    │
 │    models                                   │
 │    config                                   │
@@ -45,13 +46,16 @@ forge
 
 `forge` opens the **OPEN FORGE** window. Arrow keys (or a number) to select:
 
-1. **providers** → pick Mistral / OpenAI / DeepSeek / Kimi / … → paste the API key → chat starts
-2. **chats** → resume a saved session
-3. **models** → switch model
-4. **config** → qa / bash / theme / quiet / language
-5. **contributions** → recommend an improvement (opens mail to dariopro.1212@gmail.com — hit Send) or open the GitHub repo to contribute code
-6. **help** → about, commands, language (en / es / auto)
-7. **forge** → open chat (if a key is already saved)
+1. **resume** → last chat (only if you already have one)
+2. **providers** → pick Mistral / OpenAI / DeepSeek / Kimi / … → paste the API key → chat starts
+3. **chats** → new, search, open / rename / delete a session
+4. **models** → switch model
+5. **config** → qa / bash / theme / quiet / language
+6. **contributions** → recommend an improvement (opens mail to dariopro.1212@gmail.com — hit Send) or open the GitHub repo to contribute code
+7. **help** → about, commands, doctor (API / Ollama / llama.cpp), language
+8. **forge** → open chat (if a key is already saved)
+
+First run without a key prints a short setup and the provider list. Ollama needs no key.
 
 Skip the menu: `forge chat` or `forge --repl`.
 
@@ -191,7 +195,7 @@ Pin extra checks in `.forge/config.json`:
 
 | Command | What it does |
 | --- | --- |
-| `forge` | OPEN FORGE menu (providers, chats, models, config, contributions, help) |
+| `forge` | OPEN FORGE menu (resume, providers, chats, models, config, contributions, help) |
 | `forge chat` | Skip the menu, open the chat |
 | `forge --resume ID` | Continue a saved session |
 | `forge -c` / `--continue` | Resume the latest session |

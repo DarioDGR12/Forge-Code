@@ -21,6 +21,7 @@ def test_lang_and_spanish(monkeypatch) -> None:
     assert t("menu_contributions") == "contribuciones"
     assert "correo" in t("contrib_body_hint", email="x@y.z")
     assert t("menu_help") == "ayuda"
+    assert t("menu_resume") == "continuar"
 
 
 def test_lang_english_default(monkeypatch) -> None:

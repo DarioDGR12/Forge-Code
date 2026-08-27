@@ -119,6 +119,13 @@ def delete_session(repo: Path, session_id: str) -> str:
     return session.id
 
 
+def rename_session(repo: Path, session_id: str, title: str) -> Session:
+    session = resolve_session(repo, session_id)
+    session.title = title.strip()[:80]
+    save_session(repo, session)
+    return session
+
+
 @dataclass
 class SearchHit:
     session_id: str

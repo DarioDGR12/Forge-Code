@@ -18,7 +18,13 @@ from forge_code.config import AppConfig, apply_lang, save_config
 from forge_code.i18n import cycle_lang, set_config_lang, t
 from forge_code.providers.catalog import DEFAULT_PROVIDERS, aliases_for, is_local
 from forge_code.repl import start_repl
-from forge_code.session import list_sessions
+from forge_code.session import (
+    delete_session,
+    latest_session,
+    list_sessions,
+    rename_session,
+    search_sessions,
+)
 from forge_code.ui import THEMES, console
 
 BRAND = "O P E N   F O R G E"
@@ -37,32 +43,47 @@ def start_menu(
     ask: Asker | None = None,
     chat: ChatFn | None = None,
     open_url=None,
+    onboard: bool | None = None,
 ) -> int:
     chooser = choose or choose_index
     asker = ask or ask_line
     chatter = chat or start_repl
     set_config_lang(cfg.lang)
+    if (onboard if onboard is not None else choose is None) and needs_api_key(cfg):
+        console.print(t("onboard_welcome"))
+        _providers(cfg, chooser, asker)
     while True:
         extra = _status_line(cfg)
-        items = [
-            ("providers", t("menu_providers")),
-            ("chats", t("menu_chats")),
-            ("models", t("menu_models")),
-            ("config", t("menu_config")),
-            ("contributions", t("menu_contributions")),
-            ("help", t("menu_help")),
-            ("chat", t("menu_forge")),
-            ("quit", t("menu_quit")),
-        ]
+        items: list[tuple[str, str]] = []
+        latest = latest_session(root)
+        if latest:
+            items.append(("resume", f"{t('menu_resume')}  {_chat_label(latest)}"))
+        items.extend(
+            [
+                ("providers", t("menu_providers")),
+                ("chats", t("menu_chats")),
+                ("models", t("menu_models")),
+                ("config", t("menu_config")),
+                ("contributions", t("menu_contributions")),
+                ("help", t("menu_help")),
+                ("chat", t("menu_forge")),
+                ("quit", t("menu_quit")),
+            ]
+        )
         picked = _pick(chooser, t("menu_home"), items, extra)
         if picked in (None, "quit"):
             return 0
+        if picked == "resume":
+            if latest is None:
+                continue
+            chatter(root, cfg, session_id=latest.id)
+            continue
         if picked == "providers":
             if _providers(cfg, chooser, asker):
                 chatter(root, cfg)
             continue
         if picked == "chats":
-            sid = _chats(root, chooser)
+            sid = _chats(root, chooser, asker)
             if sid is not None:
                 chatter(root, cfg, session_id=sid or None)
             continue
@@ -76,7 +97,7 @@ def start_menu(
             _contributions(chooser, asker, open_url=open_url)
             continue
         if picked == "help":
-            _help(cfg, chooser)
+            _help(root, cfg, chooser)
             continue
         if picked == "chat":
             if needs_api_key(cfg) and not _providers(cfg, chooser, asker):
@@ -134,18 +155,86 @@ def _providers(cfg: AppConfig, chooser: Chooser, asker: Asker) -> bool:
     return True
 
 
-def _chats(root: Path, chooser: Chooser) -> str | None:
-    items = [("new", t("menu_new_chat"))]
-    for session in list_sessions(root)[:20]:
-        title = session.title or "(untitled)"
-        items.append((session.id, f"{session.id}  {title}"))
+def _chat_label(session) -> str:
+    title = session.title or t("untitled")
+    return f"{session.id[:8]}  {title}"
+
+
+def _chats(root: Path, chooser: Chooser, asker: Asker) -> str | None:
+    while True:
+        items = [
+            ("new", t("menu_new_chat")),
+            ("search", t("menu_search_chats")),
+        ]
+        for session in list_sessions(root)[:20]:
+            items.append((session.id, _chat_label(session)))
+        items.append(("back", t("menu_back")))
+        picked = _pick(chooser, t("menu_chats"), items)
+        if picked in (None, "back"):
+            return None
+        if picked == "new":
+            return ""
+        if picked == "search":
+            found = _search_chats(root, chooser, asker)
+            if found is None:
+                continue
+            picked = found
+        action = _chat_actions(root, chooser, asker, picked)
+        if action == "open":
+            return picked
+
+
+def _search_chats(root: Path, chooser: Chooser, asker: Asker) -> str | None:
+    query = (asker(t("menu_search_prompt")) or "").strip()
+    if not query:
+        return None
+    hits = search_sessions(root, query)
+    if not hits:
+        console.print(t("no_matches"))
+        return None
+    items: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for hit in hits:
+        if hit.session_id in seen:
+            continue
+        seen.add(hit.session_id)
+        title = hit.title or t("untitled")
+        items.append((hit.session_id, f"{hit.session_id[:8]}  {title}  {hit.snippet[:40]}"))
     items.append(("back", t("menu_back")))
-    picked = _pick(chooser, t("menu_chats"), items)
+    picked = _pick(chooser, t("menu_search_chats"), items)
     if picked in (None, "back"):
         return None
-    if picked == "new":
-        return ""
     return picked
+
+
+def _chat_actions(root: Path, chooser: Chooser, asker: Asker, session_id: str) -> str | None:
+    while True:
+        items = [
+            ("open", t("menu_open_chat")),
+            ("rename", t("menu_rename_chat")),
+            ("delete", t("menu_delete_chat")),
+            ("back", t("menu_back")),
+        ]
+        picked = _pick(chooser, t("menu_chats"), items)
+        if picked in (None, "back"):
+            return None
+        if picked == "open":
+            return "open"
+        if picked == "rename":
+            title = (asker(t("menu_rename_chat")) or "").strip()
+            if title:
+                rename_session(root, session_id, title)
+                console.print(t("renamed", title=title))
+            continue
+        if picked == "delete":
+            confirm = [
+                ("yes", t("menu_confirm_yes")),
+                ("back", t("menu_back")),
+            ]
+            if _pick(chooser, t("menu_confirm_delete"), confirm) == "yes":
+                deleted = delete_session(root, session_id)
+                console.print(t("deleted", id=deleted))
+                return None
 
 
 def _models(cfg: AppConfig, chooser: Chooser, asker: Asker) -> None:
@@ -233,14 +322,16 @@ def _contributions(chooser: Chooser, asker: Asker, *, open_url=None) -> None:
             open_github(open_url=opener)
 
 
-def _help(cfg: AppConfig, chooser: Chooser) -> None:
+def _help(root: Path, cfg: AppConfig, chooser: Chooser) -> None:
     from forge_code.contribute import FEEDBACK_EMAIL, GITHUB_REPO
+    from forge_code.doctor import doctor_lines
     from forge_code.ui import help_text
 
     while True:
         items = [
             ("about", t("help_about")),
             ("commands", t("help_commands")),
+            ("doctor", t("help_doctor")),
             ("lang", f"{t('help_language')}  {cfg.lang}"),
             ("back", t("menu_back")),
         ]
@@ -255,6 +346,10 @@ def _help(cfg: AppConfig, chooser: Chooser) -> None:
             continue
         if picked == "commands":
             console.print(help_text())
+            continue
+        if picked == "doctor":
+            for line in doctor_lines(root, cfg):
+                console.print(line)
             continue
         if picked == "lang":
             apply_lang(cfg, cycle_lang(cfg.lang))

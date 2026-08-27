@@ -154,7 +154,7 @@ def test_menu_help_about(tmp_path: Path, monkeypatch) -> None:
         start_menu(
             tmp_path,
             AppConfig(),
-            choose=_Choices([5, 0, 3, 7]),
+            choose=_Choices([5, 0, 4, 7]),
             ask=lambda _prompt: "",
             chat=lambda *_a, **_k: 0,
         )
@@ -174,3 +174,127 @@ def test_menu_config_language(tmp_path: Path, monkeypatch) -> None:
         chat=lambda *_a, **_k: 0,
     )
     assert load_config().lang == "en"
+
+
+def test_menu_resume_last_chat(tmp_path: Path, monkeypatch) -> None:
+    from forge_code.session import new_session, save_session
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    session = new_session(tmp_path, provider="ollama", model="local")
+    session.touch("last task")
+    save_session(tmp_path, session)
+    seen: list[str | None] = []
+
+    def fake_chat(root, cfg, session_id=None):
+        seen.append(session_id)
+        return 0
+
+    # resume is home 0 when a session exists; quit is 8
+    start_menu(
+        tmp_path,
+        AppConfig(),
+        choose=_Choices([0, 8]),
+        ask=lambda _prompt: "",
+        chat=fake_chat,
+    )
+    assert seen == [session.id]
+
+
+def test_menu_chat_rename(tmp_path: Path, monkeypatch) -> None:
+    from forge_code.session import load_session, new_session, save_session
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    session = new_session(tmp_path, provider="ollama", model="local")
+    session.touch("old title")
+    save_session(tmp_path, session)
+    # home chats=2; chats session=2; actions rename=1; actions back=3; chats back=3; quit=8
+    start_menu(
+        tmp_path,
+        AppConfig(),
+        choose=_Choices([2, 2, 1, 3, 3, 8]),
+        ask=lambda _prompt: "new title",
+        chat=lambda *_a, **_k: 0,
+    )
+    assert load_session(tmp_path, session.id).title == "new title"
+
+
+def test_menu_chat_delete(tmp_path: Path, monkeypatch) -> None:
+    from forge_code.session import list_sessions, new_session, save_session
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    session = new_session(tmp_path, provider="ollama", model="local")
+    session.touch("gone")
+    save_session(tmp_path, session)
+    # after delete, resume disappears so quit is 7; chats back is 2
+    start_menu(
+        tmp_path,
+        AppConfig(),
+        choose=_Choices([2, 2, 2, 0, 2, 7]),
+        ask=lambda _prompt: "",
+        chat=lambda *_a, **_k: 0,
+    )
+    assert list_sessions(tmp_path) == []
+
+
+def test_menu_chat_search_opens(tmp_path: Path, monkeypatch) -> None:
+    from forge_code.models import Message
+    from forge_code.session import new_session, save_session
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    session = new_session(tmp_path, provider="ollama", model="local")
+    session.messages.append(Message(role="user", content="where is auth handled?"))
+    session.touch("auth question")
+    save_session(tmp_path, session)
+    seen: list[str | None] = []
+
+    def fake_chat(root, cfg, session_id=None):
+        seen.append(session_id)
+        return 0
+
+    # home chats=2; search=1; pick hit=0; open=0; quit=8
+    start_menu(
+        tmp_path,
+        AppConfig(),
+        choose=_Choices([2, 1, 0, 0, 8]),
+        ask=lambda _prompt: "auth",
+        chat=fake_chat,
+    )
+    assert seen == [session.id]
+
+
+def test_menu_help_doctor(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    monkeypatch.setattr(
+        "forge_code.doctor.probe_local",
+        lambda: {"ollama": ["qwen2.5-coder"], "llamacpp": []},
+    )
+    # help=5; doctor=2; back=4; quit=7
+    assert (
+        start_menu(
+            tmp_path,
+            AppConfig(),
+            choose=_Choices([5, 2, 4, 7]),
+            ask=lambda _prompt: "",
+            chat=lambda *_a, **_k: 0,
+        )
+        == 0
+    )
+
+
+def test_menu_onboard_local_provider(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    monkeypatch.delenv("FORGE_PROVIDER", raising=False)
+    ollama = list(DEFAULT_PROVIDERS).index("ollama")
+    start_menu(
+        tmp_path,
+        AppConfig(),
+        choose=_Choices([ollama, 7]),
+        ask=lambda _prompt: "SHOULD_NOT_RUN",
+        chat=lambda *_a, **_k: 0,
+        onboard=True,
+    )
+    assert load_config().provider == "ollama"
