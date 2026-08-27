@@ -70,6 +70,12 @@ def test_alias_budget_share_cli(tmp_path, monkeypatch) -> None:
     assert main(["find", "--repo", str(tmp_path), "nothing"]) == 0
     assert main(["sessions", "search", "--repo", str(tmp_path)]) == 2
     assert main(["sessions", "rm", "--repo", str(tmp_path)]) == 2
+    assert main(["providers"]) == 0
+    assert main(["set"]) == 0
+    assert main(["set", "provider", "mistralai"]) == 0
+    assert main(["set", "api", "sk-test-cli"]) == 0
+    assert main(["api", "sk-test-cli-2"]) == 0
+    assert main(["set", "nope-vendor"]) == 2
     try:
         main(["find"])
     except SystemExit as exc:

@@ -109,6 +109,17 @@ def mcp_table(rows: list[tuple[str, str, str]]) -> None:
     console.print(table)
 
 
+def provider_table(rows: list[tuple[str, str, str, str]]) -> None:
+    table = Table(title="Providers", expand=True)
+    table.add_column("name", style="bold")
+    table.add_column("model")
+    table.add_column("also")
+    table.add_column("key")
+    for row in rows:
+        table.add_row(*row)
+    console.print(table)
+
+
 def session_table(rows: list[tuple[str, str, str, str]]) -> None:
     table = Table(title="Sessions")
     table.add_column("id")
@@ -135,7 +146,8 @@ def help_text() -> str:
     return """
 **REPL**
 - `/help` `/status` `/tools`
-- `/model NAME` `/provider NAME`
+- `/model NAME` `/provider NAME` `/providers`
+- `/set provider NAME` `/api KEY`
 - `/mode build|plan`
 - `/qa` `/qa on` `/qa off`
 - `/compact` `/compact hard` — shrink conversation
@@ -162,6 +174,7 @@ def help_text() -> str:
 - Ctrl+C stops the current turn
 
 **CLI**
+`forge set provider mistralai` · `forge set api KEY` · `forge providers`
 `forge run "fix the failing tests"` · `forge run --plan "…"` · `forge run -q "…"`
 `forge run --model fast --provider openai "…"` · `echo task | forge run -`
 `forge -c` · `forge --resume ID` · `forge --model local`
@@ -169,7 +182,7 @@ def help_text() -> str:
 `forge find "auth"` · `forge sessions search auth` · `forge sessions rm ID`
 `forge ci --task "..."` · `forge undo` · `forge diff`
 `forge worktree add|list|remove NAME`
-`forge qa` · `forge auth login openai` · `forge models` · `forge sessions`
+`forge qa` · `forge set provider openai` · `forge models` · `forge sessions`
 `forge mcp` · `forge commands` · `forge memory` · `forge doctor`
 `forge alias` · `forge budget` · `forge share` · `forge shares` · `forge theme`
 """.strip()

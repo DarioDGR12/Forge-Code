@@ -7,17 +7,26 @@ import argparse
 import json
 import os
 import sys
+from getpass import getpass
 from pathlib import Path
 
 from forge_code import __version__
 from forge_code.agent import Agent, undo_turn
-from forge_code.auth import login, logout, status_rows
+from forge_code.auth import (
+    apply_api_key,
+    apply_provider,
+    login,
+    logout,
+    needs_api_key,
+    status_rows,
+)
 from forge_code.commands import load_commands
 from forge_code.config import load_config, save_config
 from forge_code.diffview import visible_diff
 from forge_code.i18n import t
 from forge_code.mcp import close_mcp, describe_mcp
 from forge_code.models import Message
+from forge_code.providers.catalog import DEFAULT_PROVIDERS, aliases_for, is_local, resolve_provider
 from forge_code.providers.factory import list_remote_models, probe_local
 from forge_code.qa.runner import run_qa
 from forge_code.repl import start_repl
@@ -39,8 +48,10 @@ from forge_code.ui import (
     auth_table,
     console,
     error,
+    info,
     mcp_table,
     ok,
+    provider_table,
     qa_panel,
     search_table,
     session_table,
@@ -144,10 +155,23 @@ def main(argv: list[str] | None = None) -> int:
     find = sub.add_parser("find", help="search saved sessions", parents=[common])
     find.add_argument("query", nargs="+")
 
+    set_p = sub.add_parser("set", help="set provider, api key, or model")
+    set_p.add_argument("what", nargs="?", help="provider | api | model | NAME")
+    set_p.add_argument("value", nargs="*", help="value")
+
+    api_p = sub.add_parser("api", help="save the API key for the current provider")
+    api_p.add_argument("key", nargs="*", help="API key (prompt if omitted)")
+
+    sub.add_parser("providers", help="list built-in providers")
+
     args = parser.parse_args(argv)
     root = Path(args.repo).resolve()
     cfg = load_config()
-    _apply_overrides(cfg, args)
+    try:
+        _apply_overrides(cfg, args)
+    except KeyError as exc:
+        error(str(exc))
+        return 2
 
     if args.cmd is None:
         sid = args.resume
@@ -234,6 +258,12 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_sessions(root, args)
     if args.cmd == "find":
         return _cmd_find(root, " ".join(args.query))
+    if args.cmd == "set":
+        return _cmd_set(cfg, args)
+    if args.cmd == "api":
+        return _cmd_api(cfg, " ".join(args.key))
+    if args.cmd == "providers":
+        return _cmd_providers(cfg)
     error(f"unknown command {args.cmd}")
     return 2
 
@@ -309,14 +339,18 @@ def _task_from_github() -> str:
 def _cmd_auth(args: argparse.Namespace) -> int:
     if args.auth_cmd == "login":
         try:
-            login(args.provider, api_key=args.key, base_url=args.base_url)
+            name = login(args.provider, api_key=args.key, base_url=args.base_url)
         except KeyError as exc:
             error(str(exc))
             return 2
-        console.print(f"provider set to [cyan]{args.provider}[/]")
+        console.print(f"provider set to [cyan]{name}[/]")
         return 0
     if args.auth_cmd == "logout":
-        logout(args.provider)
+        try:
+            logout(args.provider)
+        except KeyError as exc:
+            error(str(exc))
+            return 2
         console.print(f"removed key for {args.provider}")
         return 0
     auth_table(status_rows())
@@ -539,6 +573,67 @@ def _cmd_sessions(root: Path, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_set(cfg, args: argparse.Namespace) -> int:
+    what = (args.what or "").strip()
+    value = " ".join(args.value).strip()
+    if not what:
+        console.print(f"provider {cfg.provider}  model {cfg.resolved_model()}")
+        console.print(t("set_usage"))
+        return 0
+    kind = what.lower()
+    if kind in {"provider", "prov"}:
+        if not value:
+            return _cmd_providers(cfg)
+        return _switch_provider(cfg, value)
+    if kind in {"api", "key", "apikey"}:
+        return _cmd_api(cfg, value)
+    if kind == "model":
+        if not value:
+            error(t("set_usage"))
+            return 2
+        cfg.model = value
+        save_config(cfg)
+        ok(f"model → {cfg.resolved_model()}")
+        return 0
+    return _switch_provider(cfg, what)
+
+
+def _switch_provider(cfg, name: str) -> int:
+    try:
+        provider = apply_provider(cfg, name)
+    except KeyError as exc:
+        error(str(exc))
+        return 2
+    ok(t("provider_set", provider=provider, model=cfg.resolved_model()))
+    if needs_api_key(cfg, provider):
+        info(t("need_api"))
+    return 0
+
+
+def _cmd_api(cfg, key: str) -> int:
+    secret = key.strip()
+    if not secret:
+        secret = getpass("API key: ").strip()
+    try:
+        name = apply_api_key(cfg, secret)
+    except (KeyError, ValueError) as exc:
+        error(str(exc))
+        return 2
+    ok(t("api_saved", provider=name))
+    return 0
+
+
+def _cmd_providers(cfg) -> int:
+    rows: list[tuple[str, str, str, str]] = []
+    for name, spec in DEFAULT_PROVIDERS.items():
+        mark = "*" if name == cfg.provider else ""
+        aliases = ", ".join(aliases_for(name)[:3])
+        state = "local" if is_local(spec) else spec.get("key_env") or ""
+        rows.append((f"{name}{mark}", spec.get("default_model") or "", aliases, state))
+    provider_table(rows)
+    return 0
+
+
 def _cmd_find(root: Path, query: str) -> int:
     hits = search_sessions(root, query)
     if not hits:
@@ -556,7 +651,7 @@ def _apply_overrides(cfg, args: argparse.Namespace) -> None:
     if model:
         cfg.model = model
     if provider:
-        cfg.provider = provider
+        cfg.provider = resolve_provider(provider)
 
 
 def _maybe_stdin(value: str) -> str:

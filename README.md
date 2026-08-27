@@ -6,13 +6,13 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.10.0  
+Apache License 2.0 · v0.11.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
 $ forge
 
-  Forge  v0.10.0
+  Forge  v0.11.0
   session  a1b2c3d4e5f6
   repo     ~/src/app
   model    ollama/qwen2.5-coder:7b
@@ -53,31 +53,49 @@ Spanish prompts: `export FORGE_LANG=es` (also honors `LANG=es_*` for `/bash ask`
 
 ## Bring your own key
 
-Keys live in `~/.config/forge-code/credentials.json` (mode `600`).
-They only go to the provider you chose.
+Two commands. That is the whole setup:
 
 ```bash
-forge auth login openai
-forge auth login anthropic
-forge auth login openrouter
-forge auth login groq
-forge auth status
+forge providers                      # see the list
+forge set provider mistralai         # or: openai, anthropic, deepseek, kimi, ...
+forge set api sk-your-key            # same as: forge api sk-your-key
+forge
 ```
 
-| Provider   | Variable             | Default endpoint                         |
-| ---------- | -------------------- | ---------------------------------------- |
-| OpenAI     | `OPENAI_API_KEY`     | `https://api.openai.com/v1`              |
-| Anthropic  | `ANTHROPIC_API_KEY`  | `https://api.anthropic.com`              |
-| OpenRouter | `OPENROUTER_API_KEY` | `https://openrouter.ai/api/v1`           |
-| Groq       | `GROQ_API_KEY`       | `https://api.groq.com/openai/v1`         |
-| Custom     | `FORGE_API_KEY`      | `FORGE_BASE_URL` (any OpenAI-compatible) |
+In the REPL:
+
+```
+/set provider kimi
+/api sk-your-key
+```
+
+`mistralai`, `moonshot`, `google`, `grok`, `claude`, and `chatgpt` are aliases.
+
+Keys live in `~/.config/forge-code/credentials.json` (mode `600`). They only go to the provider you chose.
+
+| Provider | Also | Env var |
+| --- | --- | --- |
+| `openai` | chatgpt | `OPENAI_API_KEY` |
+| `anthropic` | claude | `ANTHROPIC_API_KEY` |
+| `mistral` | mistralai, codestral | `MISTRAL_API_KEY` |
+| `deepseek` | | `DEEPSEEK_API_KEY` |
+| `kimi` | moonshot | `MOONSHOT_API_KEY` |
+| `gemini` | google | `GEMINI_API_KEY` |
+| `xai` | grok | `XAI_API_KEY` |
+| `openrouter` | | `OPENROUTER_API_KEY` |
+| `groq` | | `GROQ_API_KEY` |
+| `together` `fireworks` `cerebras` `perplexity` `cohere` | | their `*_API_KEY` |
+| `hf` `nvidia` `dashscope`/`qwen` `glm`/`zhipu` | | `HF_TOKEN` / `NVIDIA_API_KEY` / `DASHSCOPE_API_KEY` / `ZHIPUAI_API_KEY` |
+| `minimax` `siliconflow` `deepinfra` `sambanova` `novita` `ark`/`doubao` `yi` `github` | | matching env |
+| `ollama` `llamacpp` `lmstudio` `custom` | local, no key | optional |
+
+`forge auth login mistral` still works (prompts for the key). `forge auth status` shows what is configured.
 
 OpenAI-compatible and Anthropic responses stream token-by-token. Ctrl+C cancels.
 
 ```bash
-export OPENAI_API_KEY=sk-...
-export FORGE_PROVIDER=openai
-export FORGE_MODEL=gpt-4.1-mini
+forge set provider openai
+forge set api sk-...
 forge run "add an install section to the README"
 ```
 
@@ -87,9 +105,7 @@ forge run "add an install section to the README"
 
 ```bash
 ollama pull qwen2.5-coder:7b
-forge auth login ollama
-export FORGE_PROVIDER=ollama
-export FORGE_MODEL=qwen2.5-coder:7b
+forge set provider ollama
 forge
 ```
 
@@ -171,7 +187,10 @@ Pin extra checks in `.forge/config.json`:
 | `forge run -` | One shot, task from stdin |
 | `forge ask "question"` | Read-only Q&A (plan mode) |
 | `forge run "task" --json` | Machine-readable result |
-| `forge auth login <p>` | BYOK |
+| `forge providers` | List built-in vendors |
+| `forge set provider NAME` | Switch vendor (mistralai, deepseek, kimi, …) |
+| `forge set api KEY` / `forge api KEY` | Save the key for the current vendor |
+| `forge auth login <p>` | Same as set provider + prompt for key |
 | `forge models` | Local + remote models |
 | `forge qa` | Run the detected suite |
 | `forge sessions` | List saved conversations |
@@ -195,7 +214,7 @@ Pin extra checks in `.forge/config.json`:
 | `forge theme [name]` | Show or set the REPL color |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
 
 Type `@src/file.py` (optional `:10-20`) to attach file contents to the prompt.
 

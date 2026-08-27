@@ -32,6 +32,12 @@ STRINGS = {
         "sessions_rm_usage": "usage: /sessions rm <id>",
         "cannot_delete_current": "cannot delete the current session; /new first",
         "deleted": "deleted {id}",
+        "set_usage": "usage: forge set provider NAME  |  forge set api KEY  |  forge set model NAME",
+        "provider_set": "provider → {provider}  model {model}",
+        "need_api": "no API key. next:  forge set api YOUR_KEY",
+        "need_api_repl": "no API key. paste:  /api YOUR_KEY",
+        "api_saved": "api key saved for {provider}",
+        "api_usage": "usage: /api YOUR_KEY",
     },
     "es": {
         "forging": "forjando…",
@@ -59,6 +65,12 @@ STRINGS = {
         "sessions_rm_usage": "uso: /sessions rm <id>",
         "cannot_delete_current": "no se puede borrar la sesión actual; /new primero",
         "deleted": "borrada {id}",
+        "set_usage": "uso: forge set provider NOMBRE  |  forge set api CLAVE  |  forge set model NOMBRE",
+        "provider_set": "provider → {provider}  modelo {model}",
+        "need_api": "falta la API. siguiente:  forge set api TU_CLAVE",
+        "need_api_repl": "falta la API. pega:  /api TU_CLAVE",
+        "api_saved": "clave guardada para {provider}",
+        "api_usage": "uso: /api TU_CLAVE",
     },
 }
 

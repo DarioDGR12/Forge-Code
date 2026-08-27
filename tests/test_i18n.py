@@ -16,6 +16,7 @@ def test_lang_and_spanish(monkeypatch) -> None:
     assert "anclado" in t("pinned")
     assert "título" in t("rename_usage")
     assert "sesión nueva" in t("new_session", id="abc")
+    assert "API" in t("need_api")
 
 
 def test_lang_english_default(monkeypatch) -> None:

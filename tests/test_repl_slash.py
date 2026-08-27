@@ -66,6 +66,25 @@ def test_alias_and_budget_slash(tmp_path: Path, monkeypatch) -> None:
     assert cfg.theme == "magenta"
 
 
+def test_set_provider_and_api_slash(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    monkeypatch.delenv("FORGE_API_KEY", raising=False)
+    monkeypatch.delenv("FORGE_PROVIDER", raising=False)
+    cfg = AppConfig()
+    session = _session()
+    assert _slash("/set provider mistralai", tmp_path, cfg, [], session, Usage()) == ""
+    assert cfg.provider == "mistral"
+    assert _slash("/api sk-from-repl", tmp_path, cfg, [], session, Usage()) == ""
+    from forge_code.config import resolve_api_key
+
+    assert resolve_api_key(cfg) == "sk-from-repl"
+    assert _slash("/set provider nope", tmp_path, cfg, [], session, Usage()) == ""
+    assert cfg.provider == "mistral"
+    assert _slash("/api", tmp_path, cfg, [], session, Usage()) == ""
+    assert _slash("/providers", tmp_path, cfg, [], session, Usage()) == ""
+
+
 def test_find_and_pin(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     cfg = AppConfig()

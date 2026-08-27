@@ -22,6 +22,21 @@ def test_byok_roundtrip(tmp_path: Path, monkeypatch) -> None:
     assert config.resolve_api_key(cfg) == ""
 
 
+def test_set_provider_and_api_alias(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    monkeypatch.delenv("FORGE_API_KEY", raising=False)
+    monkeypatch.delenv("FORGE_PROVIDER", raising=False)
+
+    auth.apply_provider(config.load_config(), "mistralai")
+    cfg = config.load_config()
+    assert cfg.provider == "mistral"
+    assert "codestral" in cfg.resolved_model()
+    auth.apply_api_key(cfg, "sk-test-mistral")
+    assert config.resolve_api_key(cfg) == "sk-test-mistral"
+    assert auth.needs_api_key(cfg) is False
+
+
 def test_local_ollama_needs_no_key(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)

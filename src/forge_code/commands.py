@@ -47,6 +47,9 @@ RESERVED = {
     "new",
     "rename",
     "copy",
+    "set",
+    "api",
+    "providers",
 }
 
 _NAME = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")

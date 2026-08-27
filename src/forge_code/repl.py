@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 from forge_code.agent import Agent, undo_turn
+from forge_code.auth import apply_api_key, apply_provider, needs_api_key
 from forge_code.commands import expand_command, load_commands
 from forge_code.compact import compact_messages
 from forge_code.config import AppConfig, save_config
@@ -16,6 +17,7 @@ from forge_code.interrupt import CancelFlag
 from forge_code.mcp import close_mcp, describe_mcp
 from forge_code.models import Message
 from forge_code.qa.runner import run_qa
+from forge_code.providers.catalog import DEFAULT_PROVIDERS, aliases_for, is_local
 from forge_code.scaffold import init_workspace
 from forge_code.session import (
     delete_session,
@@ -38,6 +40,7 @@ from forge_code.ui import (
     help_text,
     info,
     ok,
+    provider_table,
     qa_panel,
     search_table,
     session_table,
@@ -195,6 +198,9 @@ def _enable_readline(root: Path) -> None:
         "/tools",
         "/model ",
         "/provider ",
+        "/providers",
+        "/set provider ",
+        "/api ",
         "/mode build",
         "/mode plan",
         "/qa",
@@ -289,12 +295,16 @@ def _slash(
         return ""
     if cmd == "provider":
         if not arg:
-            info(f"provider {cfg.provider}")
+            info(f"provider {cfg.provider} → {cfg.resolved_model()}")
             return ""
-        cfg.provider = arg
-        save_config(cfg)
-        ok(f"provider → {arg}")
+        return _slash_provider(cfg, arg)
+    if cmd == "providers":
+        _print_providers(cfg)
         return ""
+    if cmd == "set":
+        return _slash_set(cfg, arg)
+    if cmd == "api":
+        return _slash_api(cfg, arg)
     if cmd == "mode" and arg in {"build", "plan"}:
         cfg.mode = arg
         save_config(cfg)
@@ -648,6 +658,67 @@ def _slash_theme(cfg: AppConfig, arg: str) -> str:
     save_config(cfg)
     ok(f"theme → {arg}")
     return ""
+
+
+def _slash_set(cfg: AppConfig, arg: str) -> str:
+    if not arg:
+        info(f"provider {cfg.provider} → {cfg.resolved_model()}")
+        info(t("set_usage"))
+        return ""
+    parts = arg.split(maxsplit=1)
+    kind = parts[0].lower()
+    value = parts[1].strip() if len(parts) > 1 else ""
+    if kind in {"provider", "prov"}:
+        if not value:
+            _print_providers(cfg)
+            return ""
+        return _slash_provider(cfg, value)
+    if kind in {"api", "key", "apikey"}:
+        return _slash_api(cfg, value)
+    if kind == "model":
+        if not value:
+            error(t("set_usage"))
+            return ""
+        cfg.model = value
+        save_config(cfg)
+        ok(f"model → {cfg.resolved_model()}")
+        return ""
+    return _slash_provider(cfg, arg)
+
+
+def _slash_provider(cfg: AppConfig, name: str) -> str:
+    try:
+        provider = apply_provider(cfg, name)
+    except KeyError as exc:
+        error(str(exc))
+        return ""
+    ok(t("provider_set", provider=provider, model=cfg.resolved_model()))
+    if needs_api_key(cfg, provider):
+        info(t("need_api_repl"))
+    return ""
+
+
+def _slash_api(cfg: AppConfig, key: str) -> str:
+    if not key.strip():
+        error(t("api_usage"))
+        return ""
+    try:
+        name = apply_api_key(cfg, key)
+    except (KeyError, ValueError) as exc:
+        error(str(exc))
+        return ""
+    ok(t("api_saved", provider=name))
+    return ""
+
+
+def _print_providers(cfg: AppConfig) -> None:
+    rows: list[tuple[str, str, str, str]] = []
+    for name, spec in DEFAULT_PROVIDERS.items():
+        mark = "*" if name == cfg.provider else ""
+        aliases = ", ".join(aliases_for(name)[:3])
+        state = "local" if is_local(spec) else spec.get("key_env") or ""
+        rows.append((f"{name}{mark}", spec.get("default_model") or "", aliases, state))
+    provider_table(rows)
 
 
 def _copy_text(text: str) -> bool:
