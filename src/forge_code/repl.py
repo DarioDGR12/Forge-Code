@@ -10,7 +10,7 @@ from forge_code.agent import Agent, undo_turn
 from forge_code.auth import apply_api_key, apply_provider, needs_api_key
 from forge_code.commands import expand_command, load_commands
 from forge_code.compact import compact_messages
-from forge_code.config import AppConfig, save_config
+from forge_code.config import AppConfig, apply_lang, save_config
 from forge_code.diffview import visible_diff
 from forge_code.i18n import t
 from forge_code.interrupt import CancelFlag
@@ -200,6 +200,7 @@ def _enable_readline(root: Path) -> None:
         "/provider ",
         "/providers",
         "/set provider ",
+        "/set lang ",
         "/api ",
         "/mode build",
         "/mode plan",
@@ -682,6 +683,17 @@ def _slash_set(cfg: AppConfig, arg: str) -> str:
         cfg.model = value
         save_config(cfg)
         ok(f"model → {cfg.resolved_model()}")
+        return ""
+    if kind in {"lang", "language"}:
+        if not value:
+            ok(t("lang_set", lang=cfg.lang))
+            return ""
+        try:
+            apply_lang(cfg, value)
+        except ValueError as exc:
+            error(str(exc))
+            return ""
+        ok(t("lang_set", lang=cfg.lang))
         return ""
     return _slash_provider(cfg, arg)
 

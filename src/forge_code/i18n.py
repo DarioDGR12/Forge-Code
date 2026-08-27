@@ -32,7 +32,7 @@ STRINGS = {
         "sessions_rm_usage": "usage: /sessions rm <id>",
         "cannot_delete_current": "cannot delete the current session; /new first",
         "deleted": "deleted {id}",
-        "set_usage": "usage: forge set provider NAME  |  forge set api KEY  |  forge set model NAME",
+        "set_usage": "usage: forge set provider NAME  |  forge set api KEY  |  forge set model NAME  |  forge set lang auto|en|es",
         "provider_set": "provider → {provider}  model {model}",
         "need_api": "no API key. next:  forge set api YOUR_KEY",
         "need_api_repl": "no API key. paste:  /api YOUR_KEY",
@@ -64,6 +64,13 @@ STRINGS = {
         "contrib_mailto_failed": "could not open mail. write to {email}",
         "contrib_opening_github": "opening GitHub…",
         "contrib_cli_help": "Recommendations go to {email}.  forge contribute recommend \"your idea\"  ·  forge contribute code",
+        "lang_set": "language → {lang}",
+        "menu_help": "help",
+        "help_title": "help",
+        "help_about": "about",
+        "help_commands": "commands",
+        "help_language": "language",
+        "help_about_body": "Apache 2.0 terminal coding agent. BYOK or local models. Not affiliated with OpenCode or Anthropic.",
     },
     "es": {
         "forging": "forjando…",
@@ -91,7 +98,7 @@ STRINGS = {
         "sessions_rm_usage": "uso: /sessions rm <id>",
         "cannot_delete_current": "no se puede borrar la sesión actual; /new primero",
         "deleted": "borrada {id}",
-        "set_usage": "uso: forge set provider NOMBRE  |  forge set api CLAVE  |  forge set model NOMBRE",
+        "set_usage": "uso: forge set provider NOMBRE  |  forge set api CLAVE  |  forge set model NOMBRE  |  forge set lang auto|en|es",
         "provider_set": "provider → {provider}  modelo {model}",
         "need_api": "falta la API. siguiente:  forge set api TU_CLAVE",
         "need_api_repl": "falta la API. pega:  /api TU_CLAVE",
@@ -123,15 +130,59 @@ STRINGS = {
         "contrib_mailto_failed": "no se pudo abrir el correo. escribe a {email}",
         "contrib_opening_github": "abriendo GitHub…",
         "contrib_cli_help": "Las recomendaciones van a {email}.  forge contribute recommend \"tu idea\"  ·  forge contribute code",
+        "lang_set": "idioma → {lang}",
+        "menu_help": "ayuda",
+        "help_title": "ayuda",
+        "help_about": "acerca de",
+        "help_commands": "comandos",
+        "help_language": "idioma",
+        "help_about_body": "Agente de código Apache 2.0 para la terminal. BYOK o modelos locales. No afiliado a OpenCode ni Anthropic.",
     },
 }
 
 
-def lang() -> str:
-    raw = (os.environ.get("FORGE_LANG") or os.environ.get("LANG") or "en").lower()
-    if raw.startswith("es"):
+_CONFIG_LANG = "auto"
+_LANG_ORDER = ("auto", "en", "es")
+
+
+def normalize_lang(value: str) -> str:
+    raw = (value or "auto").strip().lower()
+    if raw in {"es", "español", "espanol", "spanish"}:
         return "es"
-    return "en"
+    if raw in {"en", "english"}:
+        return "en"
+    if raw in {"auto", "system"}:
+        return "auto"
+    raise ValueError("language must be auto, en, or es")
+
+
+def set_config_lang(code: str) -> str:
+    global _CONFIG_LANG
+    try:
+        _CONFIG_LANG = normalize_lang(code)
+    except ValueError:
+        _CONFIG_LANG = "auto"
+    return _CONFIG_LANG
+
+
+def cycle_lang(current: str) -> str:
+    try:
+        idx = _LANG_ORDER.index(normalize_lang(current))
+    except ValueError:
+        idx = 0
+    return _LANG_ORDER[(idx + 1) % len(_LANG_ORDER)]
+
+
+def lang() -> str:
+    env = os.environ.get("FORGE_LANG")
+    if env:
+        return "es" if env.lower().startswith("es") else "en"
+    if _CONFIG_LANG.startswith("es"):
+        return "es"
+    if _CONFIG_LANG.startswith("en"):
+        return "en"
+    raw = (os.environ.get("LANG") or "en").lower()
+    return "es" if raw.startswith("es") else "en"
 
 
 def t(key: str, **kwargs: str) -> str:

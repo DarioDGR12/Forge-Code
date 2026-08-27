@@ -6,7 +6,7 @@ Bring your own key. Or bring no key — Ollama and llama.cpp work out of the box
 After every edit, Forge runs **integrated QA** and feeds failures back to the
 model until the suite is green.
 
-Apache License 2.0 · v0.13.0  
+Apache License 2.0 · v0.14.0  
 Not affiliated with OpenCode or Anthropic.
 
 ```
@@ -20,6 +20,7 @@ $ forge
 │    models                                   │
 │    config                                   │
 │    contributions                            │
+│    help                                     │
 │    forge                                    │
 │    quit                                     │
 │                                             │
@@ -47,13 +48,14 @@ forge
 1. **providers** → pick Mistral / OpenAI / DeepSeek / Kimi / … → paste the API key → chat starts
 2. **chats** → resume a saved session
 3. **models** → switch model
-4. **config** → qa / bash / theme / quiet
+4. **config** → qa / bash / theme / quiet / language
 5. **contributions** → recommend an improvement (opens mail to dariopro.1212@gmail.com — hit Send) or open the GitHub repo to contribute code
-6. **forge** → open chat (if a key is already saved)
+6. **help** → about, commands, language (en / es / auto)
+7. **forge** → open chat (if a key is already saved)
 
 Skip the menu: `forge chat` or `forge --repl`.
 
-Spanish: `export FORGE_LANG=es`
+Spanish: **help** → language → `es`, or `forge set lang es` (still honors `FORGE_LANG` / `LANG=es_*`).
 
 Or:
 
@@ -63,7 +65,7 @@ curl -fsSL https://raw.githubusercontent.com/DarioDGR12/Forge-Code/main/install.
 
 `forge` with no arguments opens the OPEN FORGE menu in the terminal.
 
-Spanish prompts: `export FORGE_LANG=es` (also honors `LANG=es_*` for `/bash ask`).
+Spanish prompts: **config** or **help** → language, `forge set lang es`, or `export FORGE_LANG=es` (also honors `LANG=es_*` for `/bash ask`).
 
 ## Bring your own key
 
@@ -189,7 +191,7 @@ Pin extra checks in `.forge/config.json`:
 
 | Command | What it does |
 | --- | --- |
-| `forge` | OPEN FORGE menu (providers, chats, models, config, contributions) |
+| `forge` | OPEN FORGE menu (providers, chats, models, config, contributions, help) |
 | `forge chat` | Skip the menu, open the chat |
 | `forge --resume ID` | Continue a saved session |
 | `forge -c` / `--continue` | Resume the latest session |
@@ -205,6 +207,7 @@ Pin extra checks in `.forge/config.json`:
 | `forge providers` | List built-in vendors |
 | `forge set provider NAME` | Switch vendor (mistralai, deepseek, kimi, …) |
 | `forge set api KEY` / `forge api KEY` | Save the key for the current vendor |
+| `forge set lang auto\|en\|es` | Menu/REPL language (`auto` follows `LANG`) |
 | `forge auth login <p>` | Same as set provider + prompt for key |
 | `forge models` | Local + remote models |
 | `forge qa` | Run the detected suite |
@@ -232,7 +235,7 @@ Pin extra checks in `.forge/config.json`:
 | `forge contribute code` | Open the GitHub repo |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/set lang` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
 
 Type `@src/file.py` (optional `:10-20`) to attach file contents to the prompt.
 

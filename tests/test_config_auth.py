@@ -45,6 +45,17 @@ def test_local_ollama_needs_no_key(tmp_path: Path, monkeypatch) -> None:
     assert config.resolve_api_key(cfg, "ollama") == "local"
 
 
+def test_lang_roundtrip(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    monkeypatch.delenv("FORGE_LANG", raising=False)
+    cfg = config.load_config()
+    assert cfg.lang == "auto"
+    config.apply_lang(cfg, "es")
+    assert config.load_config().lang == "es"
+    config.apply_lang(cfg, "auto")
+    assert config.load_config().lang == "auto"
+
+
 def test_env_overrides_provider(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     monkeypatch.setenv("FORGE_PROVIDER", "groq")

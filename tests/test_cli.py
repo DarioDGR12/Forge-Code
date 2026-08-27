@@ -289,3 +289,16 @@ def test_contribute_cli(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("sys.stdin", __import__("io").StringIO(""))
     assert main(["contribute", "recommend"]) == 2
 
+
+def test_set_lang_cli(tmp_path, monkeypatch) -> None:
+    from forge_code.config import load_config
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    monkeypatch.delenv("FORGE_LANG", raising=False)
+    assert main(["set", "lang", "es"]) == 0
+    assert load_config().lang == "es"
+    assert main(["set", "lang", "nope"]) == 2
+    assert main(["set", "lang"]) == 0
+    assert main(["set", "lang", "auto"]) == 0
+    assert load_config().lang == "auto"
+

@@ -147,7 +147,7 @@ def help_text() -> str:
 **REPL**
 - `/help` `/status` `/tools`
 - `/model NAME` `/provider NAME` `/providers`
-- `/set provider NAME` `/api KEY`
+- `/set provider NAME` `/set lang auto|en|es` `/api KEY`
 - `/mode build|plan`
 - `/qa` `/qa on` `/qa off`
 - `/compact` `/compact hard` — shrink conversation
@@ -185,4 +185,5 @@ def help_text() -> str:
 `forge qa` · `forge set provider openai` · `forge models` · `forge sessions`
 `forge mcp` · `forge commands` · `forge memory` · `forge doctor`
 `forge alias` · `forge budget` · `forge share` · `forge shares` · `forge theme`
+`forge contribute` · `forge set lang es`
 """.strip()

@@ -32,7 +32,7 @@ def test_menu_provider_api_opens_chat(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([0, mistral, 6]),
+        choose=_Choices([0, mistral, 7]),
         ask=lambda _prompt: "sk-from-menu",
         chat=fake_chat,
     )
@@ -55,7 +55,7 @@ def test_menu_local_provider_skips_api(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([0, ollama, 6]),
+        choose=_Choices([0, ollama, 7]),
         ask=lambda _prompt: "SHOULD_NOT_RUN",
         chat=fake_chat,
     )
@@ -76,7 +76,7 @@ def test_menu_chats_new(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([1, 0, 6]),
+        choose=_Choices([1, 0, 7]),
         ask=lambda _prompt: "",
         chat=fake_chat,
     )
@@ -101,7 +101,7 @@ def test_menu_contributions_recommend(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([4, 0, 2, 6]),
+        choose=_Choices([4, 0, 2, 7]),
         ask=lambda _prompt: prompts.pop(0),
         chat=lambda *_a, **_k: 0,
         open_url=lambda url: urls.append(url) or True,
@@ -122,7 +122,7 @@ def test_menu_contributions_code(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([4, 1, 2, 6]),
+        choose=_Choices([4, 1, 2, 7]),
         ask=lambda _prompt: "",
         chat=lambda *_a, **_k: 0,
         open_url=lambda url: urls.append(url) or True,
@@ -137,7 +137,7 @@ def test_menu_contributions_empty_skips_mail(tmp_path: Path, monkeypatch) -> Non
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([4, 0, 2, 6]),
+        choose=_Choices([4, 0, 2, 7]),
         ask=lambda _prompt: "",
         chat=lambda *_a, **_k: 0,
         open_url=lambda url: urls.append(url) or True,
@@ -145,3 +145,32 @@ def test_menu_contributions_empty_skips_mail(tmp_path: Path, monkeypatch) -> Non
     assert urls == []
     folder = tmp_path / "data" / "forge-code" / "contributions"
     assert not folder.exists() or list(folder.glob("*.md")) == []
+
+
+def test_menu_help_about(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    # home → help, help → about, help → back, home → quit
+    assert (
+        start_menu(
+            tmp_path,
+            AppConfig(),
+            choose=_Choices([5, 0, 3, 7]),
+            ask=lambda _prompt: "",
+            chat=lambda *_a, **_k: 0,
+        )
+        == 0
+    )
+
+
+def test_menu_config_language(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    monkeypatch.delenv("FORGE_LANG", raising=False)
+    # home → config, config → language (auto→en), config → back, home → quit
+    start_menu(
+        tmp_path,
+        AppConfig(),
+        choose=_Choices([3, 4, 5, 7]),
+        ask=lambda _prompt: "",
+        chat=lambda *_a, **_k: 0,
+    )
+    assert load_config().lang == "en"

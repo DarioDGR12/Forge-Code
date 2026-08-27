@@ -14,8 +14,8 @@ from rich.text import Text
 
 from forge_code import __version__
 from forge_code.auth import apply_api_key, apply_provider, needs_api_key
-from forge_code.config import AppConfig, save_config
-from forge_code.i18n import t
+from forge_code.config import AppConfig, apply_lang, save_config
+from forge_code.i18n import cycle_lang, set_config_lang, t
 from forge_code.providers.catalog import DEFAULT_PROVIDERS, aliases_for, is_local
 from forge_code.repl import start_repl
 from forge_code.session import list_sessions
@@ -41,6 +41,7 @@ def start_menu(
     chooser = choose or choose_index
     asker = ask or ask_line
     chatter = chat or start_repl
+    set_config_lang(cfg.lang)
     while True:
         extra = _status_line(cfg)
         items = [
@@ -49,6 +50,7 @@ def start_menu(
             ("models", t("menu_models")),
             ("config", t("menu_config")),
             ("contributions", t("menu_contributions")),
+            ("help", t("menu_help")),
             ("chat", t("menu_forge")),
             ("quit", t("menu_quit")),
         ]
@@ -72,6 +74,9 @@ def start_menu(
             continue
         if picked == "contributions":
             _contributions(chooser, asker, open_url=open_url)
+            continue
+        if picked == "help":
+            _help(cfg, chooser)
             continue
         if picked == "chat":
             if needs_api_key(cfg) and not _providers(cfg, chooser, asker):
@@ -168,6 +173,7 @@ def _config(cfg: AppConfig, chooser: Chooser) -> None:
             ("bash", f"bash  {cfg.permissions.bash}"),
             ("theme", f"theme  {cfg.theme}"),
             ("quiet", f"quiet  {'on' if cfg.quiet else 'off'}"),
+            ("lang", f"{t('help_language')}  {cfg.lang}"),
             ("back", t("menu_back")),
         ]
         picked = _pick(chooser, t("menu_config"), items, _status_line(cfg))
@@ -183,6 +189,9 @@ def _config(cfg: AppConfig, chooser: Chooser) -> None:
         elif picked == "theme":
             idx = THEMES.index(cfg.theme) if cfg.theme in THEMES else 0
             cfg.theme = THEMES[(idx + 1) % len(THEMES)]
+        elif picked == "lang":
+            apply_lang(cfg, cycle_lang(cfg.lang))
+            continue
         save_config(cfg)
 
 
@@ -222,6 +231,33 @@ def _contributions(chooser: Chooser, asker: Asker, *, open_url=None) -> None:
             console.print(contribute_guide())
             console.print(t("contrib_opening_github"))
             open_github(open_url=opener)
+
+
+def _help(cfg: AppConfig, chooser: Chooser) -> None:
+    from forge_code.contribute import FEEDBACK_EMAIL, GITHUB_REPO
+    from forge_code.ui import help_text
+
+    while True:
+        items = [
+            ("about", t("help_about")),
+            ("commands", t("help_commands")),
+            ("lang", f"{t('help_language')}  {cfg.lang}"),
+            ("back", t("menu_back")),
+        ]
+        picked = _pick(chooser, t("help_title"), items, _status_line(cfg))
+        if picked in (None, "back"):
+            return
+        if picked == "about":
+            console.print(f"Forge v{__version__}  Apache 2.0")
+            console.print(t("help_about_body"))
+            console.print(GITHUB_REPO)
+            console.print(FEEDBACK_EMAIL)
+            continue
+        if picked == "commands":
+            console.print(help_text())
+            continue
+        if picked == "lang":
+            apply_lang(cfg, cycle_lang(cfg.lang))
 
 
 def _status_line(cfg: AppConfig) -> str:

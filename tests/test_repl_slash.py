@@ -83,6 +83,12 @@ def test_set_provider_and_api_slash(tmp_path: Path, monkeypatch) -> None:
     assert cfg.provider == "mistral"
     assert _slash("/api", tmp_path, cfg, [], session, Usage()) == ""
     assert _slash("/providers", tmp_path, cfg, [], session, Usage()) == ""
+    assert _slash("/set lang es", tmp_path, cfg, [], session, Usage()) == ""
+    assert cfg.lang == "es"
+    assert _slash("/set lang nope", tmp_path, cfg, [], session, Usage()) == ""
+    assert cfg.lang == "es"
+    assert _slash("/set lang auto", tmp_path, cfg, [], session, Usage()) == ""
+    assert cfg.lang == "auto"
 
 
 def test_find_and_pin(tmp_path: Path, monkeypatch) -> None:

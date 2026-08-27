@@ -71,6 +71,7 @@ class AppConfig:
     aliases: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_ALIASES))
     budget: BudgetConfig = field(default_factory=BudgetConfig)
     quiet: bool = False
+    lang: str = "auto"
 
     def provider_spec(self, name: str | None = None) -> dict[str, str]:
         key = name or self.provider
@@ -154,7 +155,11 @@ def load_config() -> AppConfig:
             ),
         ),
         quiet=bool(raw.get("quiet", False)),
+        lang=_parse_lang(raw.get("lang")),
     )
+    from forge_code.i18n import set_config_lang
+
+    set_config_lang(cfg.lang)
     return cfg
 
 
@@ -175,6 +180,7 @@ def save_config(cfg: AppConfig) -> None:
         "aliases": cfg.aliases,
         "budget": asdict(cfg.budget),
         "quiet": cfg.quiet,
+        "lang": cfg.lang,
         "mcp": {
             name: {"command": spec.command, "args": spec.args, "env": spec.env}
             for name, spec in cfg.mcp.items()
@@ -183,6 +189,15 @@ def save_config(cfg: AppConfig) -> None:
     path = config_path()
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     path.chmod(0o600)
+
+
+def apply_lang(cfg: AppConfig, value: str) -> str:
+    from forge_code.i18n import normalize_lang, set_config_lang
+
+    cfg.lang = normalize_lang(value)
+    set_config_lang(cfg.lang)
+    save_config(cfg)
+    return cfg.lang
 
 
 def load_credentials() -> dict[str, str]:
@@ -227,6 +242,15 @@ def _parse_mcp(raw: Any) -> dict[str, MCPServerConfig]:
             env={str(k): str(v) for k, v in (spec.get("env") or {}).items()},
         )
     return out
+
+
+def _parse_lang(raw: Any) -> str:
+    from forge_code.i18n import normalize_lang
+
+    try:
+        return normalize_lang(str(raw or "auto"))
+    except ValueError:
+        return "auto"
 
 
 def _repo_overlay() -> dict[str, Any]:

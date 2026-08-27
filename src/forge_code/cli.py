@@ -21,7 +21,7 @@ from forge_code.auth import (
     status_rows,
 )
 from forge_code.commands import load_commands
-from forge_code.config import load_config, save_config
+from forge_code.config import load_config, save_config, apply_lang
 from forge_code.diffview import visible_diff
 from forge_code.i18n import t
 from forge_code.mcp import close_mcp, describe_mcp
@@ -619,6 +619,17 @@ def _cmd_set(cfg, args: argparse.Namespace) -> int:
         cfg.model = value
         save_config(cfg)
         ok(f"model → {cfg.resolved_model()}")
+        return 0
+    if kind in {"lang", "language"}:
+        if not value:
+            ok(t("lang_set", lang=cfg.lang))
+            return 0
+        try:
+            apply_lang(cfg, value)
+        except ValueError as exc:
+            error(str(exc))
+            return 2
+        ok(t("lang_set", lang=cfg.lang))
         return 0
     return _switch_provider(cfg, what)
 
