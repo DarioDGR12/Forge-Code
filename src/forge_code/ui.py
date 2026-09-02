@@ -88,6 +88,17 @@ def files_panel(rels: list[str], folder: str) -> None:
         console.print(f"  [cyan]▸[/] {rel}")
 
 
+def turn_footer(wrote: bool, qa_ok: bool | None) -> None:
+    bits = ["/copy", "/peek", "/open", "/files", "/journal", "/why", "/turn"]
+    if wrote:
+        bits.insert(0, "files/")
+    if qa_ok is True:
+        bits.insert(0, "qa pass")
+    elif qa_ok is False:
+        bits.insert(0, "qa fail")
+    console.print(f"[dim]{' · '.join(bits)}[/]")
+
+
 def show_copyable(root: Path, rels: list[str]) -> None:
     """Print each written file as a fenced block so it is easy to copy."""
     from forge_code.files import fence_blocks
@@ -183,6 +194,15 @@ def help_text() -> str:
 - `/last` — reprint last assistant reply
 - `/copy [path]` — copy last written file (or last reply) to the clipboard
 - `/files` — show last written files (also saved under `files/`)
+- `/peek [path]` — preview the last written file
+- `/open [path]` — open `files/` (or a path) in the file manager
+- `/journal [query]` — last turns (`.forge/journal.md`)
+- `/turn` — latest journal entry
+- `/why` — last integrated QA report
+- `/note [text]` — same as `/pin` (append to memory)
+- `/cat <path>` — print a workspace file
+- `/grep <pattern> [path]` — search the workspace
+- `/ls [glob]` — list files
 - `/new [title]` — start a fresh session
 - `/rename <title>` — name this session
 - `/find <query>` — search saved sessions
@@ -207,7 +227,7 @@ def help_text() -> str:
 `forge ci --task "..."` · `forge undo` · `forge diff`
 `forge worktree add|list|remove NAME`
 `forge qa` · `forge set provider openai` · `forge models` · `forge sessions`
-`forge mcp` · `forge commands` · `forge memory` · `forge context` · `forge terminal` · `forge files` · `forge doctor`
+`forge mcp` · `forge commands` · `forge memory` · `forge context` · `forge terminal` · `forge files` · `forge open` · `forge journal` · `forge why` · `forge last` · `forge peek` · `forge cat` · `forge grep` · `forge ls` · `forge tree` · `forge status` · `forge doctor`
 `forge alias` · `forge budget` · `forge share` · `forge shares` · `forge theme`
 `forge contribute` · `forge set lang es`
 """.strip()

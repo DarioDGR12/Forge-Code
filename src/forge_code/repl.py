@@ -161,6 +161,9 @@ def start_repl(root: Path, cfg: AppConfig, session_id: str | None = None) -> int
             files_panel(rels, str(files_dir(root)))
             if not cfg.quiet:
                 show_copyable(root, rels)
+        from forge_code.ui import turn_footer
+
+        turn_footer(bool(result.writes), None if result.qa is None else result.qa.ok)
         usage_line(cfg.resolved_model(), result.usage)
     return 0
 
@@ -233,6 +236,15 @@ def _enable_readline(root: Path) -> None:
         "/rename ",
         "/copy",
         "/files",
+        "/open",
+        "/peek",
+        "/journal",
+        "/why",
+        "/turn",
+        "/note",
+        "/grep ",
+        "/ls",
+        "/cat ",
         "/commands",
         "/memory",
         "/context",
@@ -279,6 +291,9 @@ def _slash(
         speak(help_text())
         return ""
     if cmd == "status":
+        from forge_code.doctor import doctor_lines
+        from forge_code.files import load_last
+
         left = format_remaining(
             cfg.resolved_model(), totals, cfg.budget.max_usd, cfg.budget.max_tokens
         )
@@ -288,6 +303,11 @@ def _slash(
             f"theme={cfg.theme} quiet={'on' if cfg.quiet else 'off'}"
             + (f" · {left}" if left else "")
         )
+        for line in doctor_lines(root, cfg):
+            info(line)
+        rels = load_last(root)
+        if rels:
+            info("files " + ", ".join(rels))
         return ""
     if cmd == "tools":
         info(" ".join(default_registry().names()))
@@ -463,6 +483,97 @@ def _slash(
         files_panel(rels, str(files_dir(root)))
         show_copyable(root, rels)
         return ""
+    if cmd == "open":
+        from forge_code.files import files_dir, open_path
+
+        target = (root / arg).resolve() if arg else files_dir(root)
+        try:
+            target.relative_to(root.resolve())
+        except ValueError:
+            error("path escaped workspace")
+            return ""
+        if arg and not target.exists():
+            error(f"not found: {arg}")
+            return ""
+        if not arg:
+            target.mkdir(parents=True, exist_ok=True)
+        if open_path(target):
+            ok(t("opened", path=str(target)))
+        else:
+            info(t("open_failed", path=str(target)))
+        return ""
+    if cmd == "journal":
+        from forge_code.journal import load_journal
+
+        text = load_journal(root, query=arg)
+        if not text:
+            info(t("empty_journal"))
+        else:
+            speak(text)
+        return ""
+    if cmd == "turn":
+        from forge_code.journal import last_entry
+
+        text = last_entry(root)
+        if not text:
+            info(t("empty_journal"))
+        else:
+            speak(text)
+        return ""
+    if cmd == "why":
+        from forge_code.qa.runner import load_last_qa
+
+        report = load_last_qa(root)
+        if report is None:
+            info(t("why_empty"))
+        else:
+            qa_panel(report)
+        return ""
+    if cmd == "peek":
+        from forge_code.files import peek_blocks
+
+        body = peek_blocks(root, arg or None)
+        if not body:
+            info(t("empty_peek"))
+        else:
+            speak(body)
+        return ""
+    if cmd == "cat":
+        from forge_code.files import fence_blocks
+        from forge_code.tools.base import jail
+
+        if not arg:
+            error(t("cat_usage"))
+            return ""
+        try:
+            jail(root, arg)
+        except PermissionError as exc:
+            error(str(exc))
+            return ""
+        body = fence_blocks(root, [arg])
+        if not body:
+            error(f"not found: {arg}")
+        else:
+            speak(body)
+        return ""
+    if cmd == "grep":
+        from forge_code.tools.search import grep_files
+
+        if not arg:
+            error(t("grep_usage"))
+            return ""
+        parts = arg.split(maxsplit=1)
+        speak(grep_files(root, {"pattern": parts[0], "path": parts[1] if len(parts) > 1 else ""}))
+        return ""
+    if cmd == "ls":
+        from forge_code.tools.search import glob_files
+
+        text = glob_files(root, {"pattern": arg or "*"})
+        if text == "(no matches)":
+            info(t("ls_empty"))
+        else:
+            speak(text)
+        return ""
     if cmd == "copy":
         from forge_code.files import read_for_copy
 
@@ -521,7 +632,7 @@ def _slash(
                 [(hit.session_id, hit.role, hit.title, hit.snippet) for hit in hits[:20]]
             )
         return ""
-    if cmd == "pin":
+    if cmd in {"pin", "note"}:
         note = arg.strip()
         if not note:
             for message in reversed(history):
@@ -535,7 +646,7 @@ def _slash(
         if result.startswith("error:"):
             error(result)
         else:
-            ok(t("pinned"))
+            ok(t("noted") if cmd == "note" else t("pinned"))
         return ""
     if cmd == "commands":
         found = load_commands(root)

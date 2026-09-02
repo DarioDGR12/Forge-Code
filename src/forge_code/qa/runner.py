@@ -40,6 +40,46 @@ class QAReport:
     def to_dict(self) -> dict:
         return {"ok": self.ok, "results": [asdict(item) for item in self.results]}
 
+    @classmethod
+    def from_dict(cls, raw: dict) -> "QAReport":
+        results = []
+        for item in raw.get("results") or []:
+            if not isinstance(item, dict):
+                continue
+            results.append(
+                QAResult(
+                    name=str(item.get("name") or ""),
+                    command=str(item.get("command") or ""),
+                    passed=bool(item.get("passed")),
+                    output=str(item.get("output") or ""),
+                    duration_ms=int(item.get("duration_ms") or 0),
+                )
+            )
+        return cls(ok=bool(raw.get("ok")), results=results)
+
+
+LAST_QA_REL = Path(".forge") / "last-qa.json"
+
+
+def save_last_qa(root: Path, report: QAReport) -> Path:
+    path = root / LAST_QA_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(report.to_dict(), indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def load_last_qa(root: Path) -> QAReport | None:
+    path = root / LAST_QA_REL
+    if not path.is_file():
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    return QAReport.from_dict(raw)
+
 
 def detect_checks(root: Path) -> list[tuple[str, list[str]]]:
     checks: list[tuple[str, list[str]]] = []

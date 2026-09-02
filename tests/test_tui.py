@@ -32,7 +32,7 @@ def test_menu_provider_api_opens_chat(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([0, mistral, 7]),
+        choose=_Choices([0, mistral, 8]),
         ask=lambda _prompt: "sk-from-menu",
         chat=fake_chat,
     )
@@ -55,7 +55,7 @@ def test_menu_local_provider_skips_api(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([0, ollama, 7]),
+        choose=_Choices([0, ollama, 8]),
         ask=lambda _prompt: "SHOULD_NOT_RUN",
         chat=fake_chat,
     )
@@ -76,7 +76,7 @@ def test_menu_chats_new(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([1, 0, 7]),
+        choose=_Choices([1, 0, 8]),
         ask=lambda _prompt: "",
         chat=fake_chat,
     )
@@ -101,7 +101,7 @@ def test_menu_contributions_recommend(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([4, 0, 2, 7]),
+        choose=_Choices([5, 0, 2, 8]),
         ask=lambda _prompt: prompts.pop(0),
         chat=lambda *_a, **_k: 0,
         open_url=lambda url: urls.append(url) or True,
@@ -122,7 +122,7 @@ def test_menu_contributions_code(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([4, 1, 2, 7]),
+        choose=_Choices([5, 1, 2, 8]),
         ask=lambda _prompt: "",
         chat=lambda *_a, **_k: 0,
         open_url=lambda url: urls.append(url) or True,
@@ -137,7 +137,7 @@ def test_menu_contributions_empty_skips_mail(tmp_path: Path, monkeypatch) -> Non
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([4, 0, 2, 7]),
+        choose=_Choices([5, 0, 2, 8]),
         ask=lambda _prompt: "",
         chat=lambda *_a, **_k: 0,
         open_url=lambda url: urls.append(url) or True,
@@ -154,7 +154,7 @@ def test_menu_help_about(tmp_path: Path, monkeypatch) -> None:
         start_menu(
             tmp_path,
             AppConfig(),
-            choose=_Choices([5, 0, 4, 7]),
+            choose=_Choices([6, 0, 4, 8]),
             ask=lambda _prompt: "",
             chat=lambda *_a, **_k: 0,
         )
@@ -169,7 +169,7 @@ def test_menu_config_language(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([3, 4, 5, 7]),
+        choose=_Choices([3, 4, 5, 8]),
         ask=lambda _prompt: "",
         chat=lambda *_a, **_k: 0,
     )
@@ -190,11 +190,11 @@ def test_menu_resume_last_chat(tmp_path: Path, monkeypatch) -> None:
         seen.append(session_id)
         return 0
 
-    # resume is home 0 when a session exists; quit is 8
+    # resume is home 0 when a session exists; quit is 9
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([0, 8]),
+        choose=_Choices([0, 9]),
         ask=lambda _prompt: "",
         chat=fake_chat,
     )
@@ -209,11 +209,11 @@ def test_menu_chat_rename(tmp_path: Path, monkeypatch) -> None:
     session = new_session(tmp_path, provider="ollama", model="local")
     session.touch("old title")
     save_session(tmp_path, session)
-    # home chats=2; chats session=2; actions rename=1; actions back=3; chats back=3; quit=8
+    # home chats=2; chats session=2; actions rename=1; actions back=3; chats back=3; quit=9
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([2, 2, 1, 3, 3, 8]),
+        choose=_Choices([2, 2, 1, 3, 3, 9]),
         ask=lambda _prompt: "new title",
         chat=lambda *_a, **_k: 0,
     )
@@ -228,11 +228,11 @@ def test_menu_chat_delete(tmp_path: Path, monkeypatch) -> None:
     session = new_session(tmp_path, provider="ollama", model="local")
     session.touch("gone")
     save_session(tmp_path, session)
-    # after delete, resume disappears so quit is 7; chats back is 2
+    # after delete, resume disappears so quit is 8; chats back is 2
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([2, 2, 2, 0, 2, 7]),
+        choose=_Choices([2, 2, 2, 0, 2, 8]),
         ask=lambda _prompt: "",
         chat=lambda *_a, **_k: 0,
     )
@@ -255,11 +255,11 @@ def test_menu_chat_search_opens(tmp_path: Path, monkeypatch) -> None:
         seen.append(session_id)
         return 0
 
-    # home chats=2; search=1; pick hit=0; open=0; quit=8
+    # home chats=2; search=1; pick hit=0; open=0; quit=9
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([2, 1, 0, 0, 8]),
+        choose=_Choices([2, 1, 0, 0, 9]),
         ask=lambda _prompt: "auth",
         chat=fake_chat,
     )
@@ -272,12 +272,12 @@ def test_menu_help_doctor(tmp_path: Path, monkeypatch) -> None:
         "forge_code.doctor.probe_local",
         lambda: {"ollama": ["qwen2.5-coder"], "llamacpp": []},
     )
-    # help=5; doctor=2; back=4; quit=7
+    # help=6; doctor=2; back=4; quit=8
     assert (
         start_menu(
             tmp_path,
             AppConfig(),
-            choose=_Choices([5, 2, 4, 7]),
+            choose=_Choices([6, 2, 4, 8]),
             ask=lambda _prompt: "",
             chat=lambda *_a, **_k: 0,
         )
@@ -292,9 +292,24 @@ def test_menu_onboard_local_provider(tmp_path: Path, monkeypatch) -> None:
     start_menu(
         tmp_path,
         AppConfig(),
-        choose=_Choices([ollama, 7]),
+        choose=_Choices([ollama, 8]),
         ask=lambda _prompt: "SHOULD_NOT_RUN",
         chat=lambda *_a, **_k: 0,
         onboard=True,
     )
     assert load_config().provider == "ollama"
+
+
+def test_menu_files(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    # home → files, files → back, home → quit
+    assert (
+        start_menu(
+            tmp_path,
+            AppConfig(),
+            choose=_Choices([4, 4, 8]),
+            ask=lambda _prompt: "",
+            chat=lambda *_a, **_k: 0,
+        )
+        == 0
+    )

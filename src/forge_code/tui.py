@@ -64,6 +64,7 @@ def start_menu(
                 ("chats", t("menu_chats")),
                 ("models", t("menu_models")),
                 ("config", t("menu_config")),
+                ("files", t("menu_files")),
                 ("contributions", t("menu_contributions")),
                 ("help", t("menu_help")),
                 ("chat", t("menu_forge")),
@@ -92,6 +93,9 @@ def start_menu(
             continue
         if picked == "config":
             _config(cfg, chooser)
+            continue
+        if picked == "files":
+            _files(root, chooser)
             continue
         if picked == "contributions":
             _contributions(chooser, asker, open_url=open_url)
@@ -253,6 +257,50 @@ def _models(cfg: AppConfig, chooser: Chooser, asker: Asker) -> None:
         cfg.model = picked
     save_config(cfg)
     console.print(t("provider_set", provider=cfg.provider, model=cfg.resolved_model()))
+
+
+def _files(root: Path, chooser: Chooser) -> None:
+    from forge_code.files import files_dir, load_last, open_path, peek_blocks
+    from forge_code.journal import load_journal
+    from forge_code.qa.runner import load_last_qa
+    from forge_code.ui import files_panel, qa_panel, show_copyable
+
+    rels = load_last(root)
+    if rels:
+        files_panel(rels, str(files_dir(root)))
+        show_copyable(root, rels)
+    else:
+        console.print(t("empty_files"))
+    while True:
+        items = [
+            ("open", t("menu_open_files")),
+            ("peek", t("menu_peek")),
+            ("journal", t("menu_journal")),
+            ("why", t("menu_why")),
+            ("back", t("menu_back")),
+        ]
+        picked = _pick(chooser, t("menu_files"), items)
+        if picked in (None, "back"):
+            return
+        if picked == "open":
+            target = files_dir(root)
+            target.mkdir(parents=True, exist_ok=True)
+            if open_path(target):
+                console.print(t("opened", path=str(target)))
+            else:
+                console.print(t("open_failed", path=str(target)))
+        elif picked == "peek":
+            body = peek_blocks(root)
+            console.print(body or t("empty_peek"))
+        elif picked == "journal":
+            text = load_journal(root)
+            console.print(text or t("empty_journal"))
+        elif picked == "why":
+            report = load_last_qa(root)
+            if report is None:
+                console.print(t("why_empty"))
+            else:
+                qa_panel(report)
 
 
 def _config(cfg: AppConfig, chooser: Chooser) -> None:

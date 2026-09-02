@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from forge_code.files import fence_blocks, load_last, read_for_copy, save_turn
+from forge_code.files import fence_blocks, load_last, open_path, peek_blocks, read_for_copy, save_turn
 
 
 def test_save_turn_copies_and_indexes(tmp_path: Path) -> None:
@@ -33,3 +33,23 @@ def test_read_for_copy_named_path(tmp_path: Path) -> None:
     path, text = read_for_copy(tmp_path, "a.py")
     assert path == "a.py"
     assert text == "a = 1\n"
+    peek = peek_blocks(tmp_path)
+    assert "b = 2" in peek
+    named = peek_blocks(tmp_path, "a.py")
+    assert "a = 1" in named
+    assert peek_blocks(tmp_path, "missing.py") == ""
+    assert open_path(tmp_path / "nope") is False
+
+
+def test_open_path_launches(tmp_path: Path, monkeypatch) -> None:
+    launched: list[list[str]] = []
+
+    monkeypatch.setattr("shutil.which", lambda name: f"/bin/{name}" if name == "xdg-open" else None)
+
+    def fake_popen(cmd, **_kwargs):
+        launched.append(cmd)
+        return object()
+
+    monkeypatch.setattr("subprocess.Popen", fake_popen)
+    assert open_path(tmp_path) is True
+    assert launched == [["/bin/xdg-open", str(tmp_path)]]

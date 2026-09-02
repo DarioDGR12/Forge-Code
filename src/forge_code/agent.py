@@ -14,6 +14,7 @@ from forge_code.diagnostics import format_diagnostics, run_diagnostics
 from forge_code.diffview import preview_writes
 from forge_code.files import save_turn
 from forge_code.hooks import run_hook
+from forge_code.journal import append_entry
 from forge_code.interrupt import CancelFlag, CancelledError
 from forge_code.mcp import load_mcp_tools
 from forge_code.mentions import expand_mentions
@@ -22,7 +23,7 @@ from forge_code.permissions import PermissionGate
 from forge_code.project import refresh_if_markers
 from forge_code.prompts import system_prompt
 from forge_code.providers.factory import complete as default_complete
-from forge_code.qa.runner import QAReport, run_qa
+from forge_code.qa.runner import QAReport, run_qa, save_last_qa
 from forge_code.tools.registry import ToolRegistry, default_registry
 from forge_code.undo import checkpoint, remember_write, undo_last
 from forge_code.usage import Usage, budget_hit
@@ -202,6 +203,7 @@ class Agent:
                         )
                 if writes and self.cfg.qa.auto:
                     qa = run_qa(self.root, timeout=self.cfg.qa.timeout, extra=self.cfg.qa.extra)
+                    save_last_qa(self.root, qa)
                     self.on_event("qa", qa.summary())
                     if not qa.ok:
                         messages.append(
@@ -221,8 +223,7 @@ class Agent:
                 last_text = last_text or "Stopped: max tool steps reached."
         except CancelledError:
             run_hook(self.root, "post_turn", {"FORGE_TASK": user_text[:200]})
-            if writes:
-                save_turn(self.root, writes)
+            self._persist(user_text, writes, qa)
             history.clear()
             history.extend(messages)
             return TurnResult(
@@ -237,8 +238,7 @@ class Agent:
             )
 
         run_hook(self.root, "post_turn", {"FORGE_TASK": user_text[:200]})
-        if writes:
-            save_turn(self.root, writes)
+        self._persist(user_text, writes, qa)
         history.clear()
         history.extend(messages)
         return TurnResult(
@@ -262,6 +262,14 @@ class Agent:
             )
         except TypeError:
             return self.complete_fn(self.cfg, messages, tools)
+
+    def _persist(self, task: str, writes: list[str], qa: QAReport | None) -> None:
+        kept = [item for item in writes if item]
+        if kept:
+            save_turn(self.root, kept)
+        if qa is not None:
+            save_last_qa(self.root, qa)
+        append_entry(self.root, task=task, writes=kept, qa_ok=None if qa is None else qa.ok)
 
     def _remember(self, name: str, arguments: dict) -> None:
         rel = str(arguments.get("path") or "")

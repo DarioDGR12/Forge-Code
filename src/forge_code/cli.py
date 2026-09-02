@@ -131,6 +131,25 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("terminal", help="print .forge/terminal.md", parents=[common])
     files_p = sub.add_parser("files", help="show last written files (copy-friendly)", parents=[common])
     files_p.add_argument("--copy", action="store_true", help="copy the last file to the clipboard")
+    open_p = sub.add_parser("open", help="open files/ in the file manager", parents=[common])
+    open_p.add_argument("path", nargs="?", help="workspace path (default: files/)")
+    journal_p = sub.add_parser("journal", help="print .forge/journal.md", parents=[common])
+    journal_p.add_argument("query", nargs="*", help="filter journal entries")
+    sub.add_parser("why", help="print the last integrated QA report", parents=[common])
+    sub.add_parser("last", help="print the last journal entry", parents=[common])
+    peek_p = sub.add_parser("peek", help="preview the last written file", parents=[common])
+    peek_p.add_argument("path", nargs="?", help="workspace path (default: last file)")
+    cat_p = sub.add_parser("cat", help="print a workspace file", parents=[common])
+    cat_p.add_argument("path", help="workspace-relative path")
+    grep_p = sub.add_parser("grep", help="search the workspace", parents=[common])
+    grep_p.add_argument("pattern", help="regex")
+    grep_p.add_argument("path", nargs="?", default="", help="file or directory")
+    ls_p = sub.add_parser("ls", help="list files by glob", parents=[common])
+    ls_p.add_argument("pattern", nargs="?", default="*", help="glob, default *")
+    sub.add_parser("status", help="compact workspace snapshot", parents=[common])
+    tree_p = sub.add_parser("tree", help="show a directory tree", parents=[common])
+    tree_p.add_argument("path", nargs="?", default=".", help="workspace-relative path")
+    tree_p.add_argument("--depth", type=int, default=3)
 
     worktree = sub.add_parser("worktree", help="isolated git worktrees", parents=[common])
     worktree.add_argument("action", choices=["add", "list", "remove"])
@@ -267,6 +286,35 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "files":
         return _cmd_files(root, copy=bool(getattr(args, "copy", False)))
+    if args.cmd == "open":
+        return _cmd_open(root, getattr(args, "path", None))
+    if args.cmd == "journal":
+        return _cmd_journal(root, " ".join(getattr(args, "query", []) or []))
+    if args.cmd == "why":
+        return _cmd_why(root)
+    if args.cmd == "last":
+        return _cmd_last(root)
+    if args.cmd == "peek":
+        return _cmd_peek(root, getattr(args, "path", None))
+    if args.cmd == "cat":
+        return _cmd_cat(root, args.path)
+    if args.cmd == "grep":
+        from forge_code.tools.search import grep_files
+
+        console.print(grep_files(root, {"pattern": args.pattern, "path": args.path or ""}))
+        return 0
+    if args.cmd == "ls":
+        from forge_code.tools.search import glob_files
+
+        console.print(glob_files(root, {"pattern": args.pattern or "*"}))
+        return 0
+    if args.cmd == "status":
+        return _cmd_status(root, cfg)
+    if args.cmd == "tree":
+        from forge_code.tools.tree import tree_dir
+
+        console.print(tree_dir(root, {"path": args.path or ".", "depth": args.depth}))
+        return 0
     if args.cmd == "worktree":
         return _cmd_worktree(root, args)
     if args.cmd == "alias":
@@ -346,6 +394,9 @@ def _cmd_run(root: Path, cfg, task: str, as_json: bool, plan: bool = False, quie
                 rels = save_turn(root, result.writes) or [p for p in result.writes if p]
                 files_panel(rels, str(files_dir(root)))
                 show_copyable(root, rels)
+            from forge_code.ui import turn_footer
+
+            turn_footer(bool(result.writes), None if result.qa is None else result.qa.ok)
     if result.interrupted:
         return 130
     return 0 if (result.qa is None or result.qa.ok) else 1
@@ -422,6 +473,10 @@ def _cmd_models(cfg) -> int:
 
 
 def _cmd_doctor(root: Path, cfg) -> int:
+    from forge_code.doctor import doctor_lines
+
+    for line in doctor_lines(root, cfg):
+        console.print(line)
     console.print(f"repo     {root}")
     console.print(f"provider {cfg.provider}")
     console.print(f"model    {cfg.resolved_model()}")
@@ -588,6 +643,90 @@ def _cmd_files(root: Path, copy: bool = False) -> int:
             ok(t("copied_file", path=path))
         elif text:
             info(t("no_clipboard"))
+    return 0
+
+
+def _cmd_journal(root: Path, query: str = "") -> int:
+    from forge_code.journal import load_journal
+
+    text = load_journal(root, query=query)
+    console.print(text or t("empty_journal"))
+    return 0
+
+
+def _cmd_last(root: Path) -> int:
+    from forge_code.journal import last_entry
+
+    text = last_entry(root)
+    console.print(text or t("empty_journal"))
+    return 0
+
+
+def _cmd_peek(root: Path, rel: str | None) -> int:
+    from forge_code.files import peek_blocks
+
+    body = peek_blocks(root, rel)
+    if not body:
+        console.print(t("empty_peek"))
+        return 0
+    console.print(body)
+    return 0
+
+
+def _cmd_cat(root: Path, rel: str) -> int:
+    from forge_code.files import fence_blocks
+    from forge_code.tools.base import jail
+
+    try:
+        jail(root, rel)
+    except PermissionError as exc:
+        error(str(exc))
+        return 2
+    body = fence_blocks(root, [rel])
+    if not body:
+        error(f"not found: {rel}")
+        return 2
+    console.print(body)
+    return 0
+
+
+def _cmd_status(root: Path, cfg) -> int:
+    from forge_code.doctor import doctor_lines
+
+    for line in doctor_lines(root, cfg):
+        console.print(line)
+    return 0
+
+
+def _cmd_why(root: Path) -> int:
+    from forge_code.qa.runner import load_last_qa
+
+    report = load_last_qa(root)
+    if report is None:
+        console.print(t("why_empty"))
+        return 0
+    qa_panel(report)
+    return 0 if report.ok else 1
+
+
+def _cmd_open(root: Path, rel: str | None) -> int:
+    from forge_code.files import files_dir, open_path
+
+    target = (root / rel).resolve() if rel else files_dir(root)
+    try:
+        target.relative_to(root.resolve())
+    except ValueError:
+        error("path escaped workspace")
+        return 2
+    if rel and not target.exists():
+        error(f"not found: {rel}")
+        return 2
+    if not rel:
+        target.mkdir(parents=True, exist_ok=True)
+    if open_path(target):
+        ok(t("opened", path=str(target)))
+        return 0
+    info(t("open_failed", path=str(target)))
     return 0
 
 

@@ -310,4 +310,16 @@ def test_context_and_terminal_cli(tmp_path) -> None:
     assert main(["context", "--refresh", "--repo", str(tmp_path)]) == 0
     assert main(["terminal", "--repo", str(tmp_path)]) == 0
     assert main(["files", "--repo", str(tmp_path)]) == 0
+    assert main(["journal", "--repo", str(tmp_path)]) == 0
+    assert main(["why", "--repo", str(tmp_path)]) == 0
+    assert main(["last", "--repo", str(tmp_path)]) == 0
+    assert main(["peek", "--repo", str(tmp_path)]) == 0
+    assert main(["tree", "--repo", str(tmp_path)]) == 0
+    assert main(["status", "--repo", str(tmp_path)]) == 0
+    assert main(["ls", "--repo", str(tmp_path)]) == 0
+    assert main(["grep", "CLI", "--repo", str(tmp_path)]) == 0
+    (tmp_path / "note.py").write_text("x = 1\n", encoding="utf-8")
+    assert main(["cat", "note.py", "--repo", str(tmp_path)]) == 0
+    assert main(["cat", "missing.py", "--repo", str(tmp_path)]) == 2
+    assert main(["open", "missing-dir", "--repo", str(tmp_path)]) == 2
 
