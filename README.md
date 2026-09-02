@@ -13,7 +13,7 @@ After every edit, Forge runs **integrated QA** until the suite is green.
 
 ![Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-22d3ee?style=flat-square)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0ea5e9?style=flat-square)
-![v0.18.0](https://img.shields.io/badge/version-0.18.0-f59e0b?style=flat-square)
+![v0.19.0](https://img.shields.io/badge/version-0.19.0-f59e0b?style=flat-square)
 
 Not affiliated with OpenCode or Anthropic.
 
@@ -43,7 +43,7 @@ which forge
 # must be …/Forge-Code/.venv/bin/forge
 
 forge --version
-# forge 0.18.0
+# forge 0.19.0
 
 forge
 ```
@@ -58,7 +58,7 @@ source ~/Forge-Code/.venv/bin/activate    # then: forge
 ~/Forge-Code/.venv/bin/python -m forge_code
 ```
 
-`forge --version` must print `forge 0.18.0`. If you see `forge vibe`, “marketplace”,
+`forge --version` must print `forge 0.19.0`. If you see `forge vibe`, “marketplace”,
 or `unrecognized arguments: menu` / `context`, that is a **different program** named
 `forge`. `which forge` shows which one. Activate the venv (or use the paths above).
 
@@ -77,9 +77,10 @@ or `unrecognized arguments: menu` / `context`, that is a **different program** n
 3. **chats** → new, search, open / rename / delete a session
 4. **models** → switch model
 5. **config** → qa / bash / theme / quiet / language
-6. **contributions** → recommend an improvement (opens mail to dariopro.1212@gmail.com — hit Send) or open the GitHub repo to contribute code
-7. **help** → about, commands, doctor (API / Ollama / llama.cpp / cwd / context), language
-8. **forge** → open chat (if a key is already saved)
+6. **files** → last written files, open `files/`, peek, journal, last QA
+7. **contributions** → recommend an improvement (opens mail to dariopro.1212@gmail.com — hit Send) or open the GitHub repo to contribute code
+8. **help** → about, commands, doctor (API / Ollama / llama.cpp / cwd / context / files / journal), language
+9. **forge** → open chat (if a key is already saved)
 
 First run without a key prints a short setup and the provider list. Ollama needs no key.
 
@@ -211,7 +212,7 @@ Pin extra checks in `.forge/config.json`:
 
 | Command | What it does |
 | --- | --- |
-| `forge` | OPEN FORGE menu (resume, providers, chats, models, config, contributions, help) |
+| `forge` | OPEN FORGE menu (resume, providers, chats, models, config, files, contributions, help) |
 | `forge menu` | Same as bare `forge` |
 | `forge chat` | Skip the menu, open the chat |
 | `forge --resume ID` | Continue a saved session |
@@ -240,7 +241,7 @@ Pin extra checks in `.forge/config.json`:
 | `forge tools` | List agent tools |
 | `forge mcp` | List configured MCP servers |
 | `forge init` | Scaffold `AGENTS.md`, `.forgeignore`, skills, commands |
-| `forge doctor` | Health check (provider, API, Ollama, cwd, context, last bash) |
+| `forge doctor` | Health check (version, provider, API, Ollama, cwd, context, files, journal, last QA) |
 | `forge undo` | Revert the last agent edits |
 | `forge diff` | Last agent edits or current git diff |
 | `forge commands` | List `.forge/commands/*.md` slash commands |
@@ -249,6 +250,16 @@ Pin extra checks in `.forge/config.json`:
 | `forge context --refresh` | Rescan the workspace and rewrite context |
 | `forge terminal` | Print recent shell log (`.forge/terminal.md`) |
 | `forge files` | Last written files (copy-friendly). `--copy` puts the last one on the clipboard |
+| `forge open [path]` | Open `files/` (or a workspace path) in the file manager |
+| `forge peek [path]` | Preview the last written file |
+| `forge cat PATH` | Print a workspace file |
+| `forge journal [query]` | Last turns (`.forge/journal.md`) |
+| `forge last` | Latest journal entry |
+| `forge why` | Last integrated QA report |
+| `forge grep PATTERN [path]` | Search the workspace |
+| `forge ls [glob]` | List files by glob |
+| `forge tree [path]` | Directory tree |
+| `forge status` | Compact workspace snapshot |
 | `forge worktree add\|list\|remove` | Isolated git worktrees under `.worktrees/` |
 | `forge alias` | List / set / remove model aliases |
 | `forge budget` | Show the session cost/token cap |
@@ -260,7 +271,7 @@ Pin extra checks in `.forge/config.json`:
 | `forge contribute code` | Open the GitHub repo |
 | `forge ci --task "…"` | CI / GitHub Actions (sets `FORGE_YES=1`) |
 
-REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/set lang` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/copy path` `/files` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/context` `/terminal` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
+REPL: `/help` `/status` `/tools` `/model` `/provider` `/providers` `/set provider` `/set lang` `/api` `/mode` `/qa` `/compact` `/compact hard` `/cost` `/undo` `/diff` `/review` `/ask` `/retry` `/last` `/copy` `/copy path` `/files` `/peek` `/open` `/journal` `/turn` `/why` `/note` `/cat` `/grep` `/ls` `/new` `/rename` `/find` `/pin` `/alias` `/budget` `/share` `/shares` `/theme` `/quiet` `/commands` `/memory` `/context` `/terminal` `/bash` `/mcp` `/sessions` `/sessions rm` `/export` `/clear` `/exit`
 
 Type `@src/file.py` (optional `:10-20`) to attach file contents to the prompt.
 
@@ -288,7 +299,7 @@ Multiline: end a line with `\` and keep typing. Tab completes slash commands.
 
 The system prompt loads `.forge/context.md`, nested `AGENTS.md` / `FORGE.md`, the shell cwd / last exit, and the last shell snippets every turn. `forge context --refresh` or `/context refresh` rebuilds the map. Secrets in the terminal log are redacted.
 
-After writes, Forge prints the new code in a copy-friendly block, saves a copy under `files/` (open that folder in Files / Finder), and `/copy` puts the last file on the clipboard. `/diff` and `forge diff` replay the unified diff.
+After writes, Forge prints the new code in a copy-friendly block, saves a copy under `files/` (open that folder in Files / Finder), appends `.forge/journal.md`, and stores the last QA in `.forge/last-qa.json`. `/copy` puts the last file on the clipboard. `/peek`, `/journal`, `/why`, and `/turn` replay those artifacts. `/diff` and `forge diff` replay the unified diff.
 
 ## Custom commands
 
@@ -442,7 +453,9 @@ Or `forge ci --task "…"` with `FORGE_YES=1`. A `/forge …` issue comment can 
 | `.forge/memory.md` | Persistent notes (`memory_write`) |
 | `.forge/context.md` | Generated project map (`project_map`) |
 | `.forge/terminal.md` | Recent shell log (`bash` / `terminal_read`) |
-| `files/` | Copies of the last turn’s written files (`/copy`, `/files`, `forge files`) |
+| `.forge/journal.md` | Newest-first turn log (`/journal`, `/turn`, `forge last`) |
+| `.forge/last-qa.json` | Last integrated QA report (`/why`, `forge why`) |
+| `files/` | Copies of the last turn’s written files (`/copy`, `/peek`, `/files`, `forge files`) |
 | `.forge/shell.json` | Persisted bash cwd |
 | `.forge/shares/` | Markdown exports from `/share` |
 | `.worktrees/` | Isolated checkouts from `forge worktree add` |

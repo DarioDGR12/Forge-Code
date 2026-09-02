@@ -96,6 +96,16 @@ def read_for_copy(root: Path, rel: str | None = None) -> tuple[str, str]:
     return target, ""
 
 
+def peek_blocks(root: Path, rel: str | None = None, *, max_lines: int = MAX_LINES) -> str:
+    """Fence the last written file, or ``rel`` if given."""
+    if rel:
+        targets = [rel.strip()]
+    else:
+        last = load_last(root)
+        targets = last[-1:] if last else []
+    return fence_blocks(root, targets, max_lines=max_lines)
+
+
 def fence_blocks(root: Path, rels: list[str], *, max_lines: int = MAX_LINES) -> str:
     chunks: list[str] = []
     for rel in rels:
@@ -126,7 +136,7 @@ def _write_index(dest_root: Path, rels: list[str]) -> None:
         "",
         "Copies of what the agent just wrote. Open this folder in Files / Finder.",
         "",
-        "In the REPL: `/copy` copies the last file. `/copy path` copies one file. `/files` lists them.",
+        "In the REPL: `/copy` copies the last file. `/peek` previews it. `/files` lists them. `/open` opens this folder.",
         "",
     ]
     for rel in rels:
@@ -157,5 +167,29 @@ def copy_to_clipboard(text: str) -> bool:
             )
             return True
         except (OSError, subprocess.SubprocessError):
+            continue
+    return False
+
+
+def open_path(path: Path) -> bool:
+    """Open a file or folder in the desktop file manager."""
+    import shutil
+    import subprocess
+
+    if not path.exists():
+        return False
+    for name in ("xdg-open", "open", "wslview"):
+        binary = shutil.which(name)
+        if not binary:
+            continue
+        try:
+            subprocess.Popen(
+                [binary, str(path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            return True
+        except OSError:
             continue
     return False

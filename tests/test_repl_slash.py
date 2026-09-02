@@ -149,3 +149,47 @@ def test_new_rename_copy_and_rm(tmp_path: Path, monkeypatch) -> None:
     assert _slash(f"/sessions rm {session.id}", tmp_path, cfg, history, session, totals) == ""
     assert session.id in {item.id for item in list_sessions(tmp_path)}
     assert _slash("/sessions rm", tmp_path, cfg, history, session, totals) == ""
+
+
+def test_journal_why_peek_note_and_search(tmp_path: Path, monkeypatch) -> None:
+    from forge_code.files import save_turn
+    from forge_code.journal import append_entry
+    from forge_code.qa.runner import QAReport, QAResult, save_last_qa
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    cfg = AppConfig()
+    history = [Message(role="assistant", content="remember this note")]
+    session = _session()
+    totals = Usage()
+
+    assert _slash("/journal", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/why", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/turn", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/peek", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/note", tmp_path, cfg, history, session, totals) == ""
+    assert "remember this note" in (tmp_path / ".forge" / "memory.md").read_text(encoding="utf-8")
+    assert _slash("/note prefer ruff", tmp_path, cfg, history, session, totals) == ""
+    assert "ruff" in (tmp_path / ".forge" / "memory.md").read_text(encoding="utf-8")
+
+    (tmp_path / "note.py").write_text("VALUE = 1\n", encoding="utf-8")
+    save_turn(tmp_path, ["note.py"])
+    append_entry(tmp_path, task="add note.py", writes=["note.py"], qa_ok=True)
+    save_last_qa(
+        tmp_path,
+        QAReport(ok=True, results=[QAResult("pytest", "pytest", True, "", 1)]),
+    )
+    assert _slash("/peek", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/journal note", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/turn", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/why", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/cat note.py", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/cat", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/grep VALUE", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/grep", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/ls *.py", tmp_path, cfg, history, session, totals) == ""
+    monkeypatch.setattr("forge_code.files.open_path", lambda _path: True)
+    assert _slash("/open", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/open missing", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/status", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/qa", tmp_path, cfg, history, session, totals) == ""
+    assert (tmp_path / ".forge" / "last-qa.json").is_file()
