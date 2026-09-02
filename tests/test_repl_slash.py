@@ -191,3 +191,5 @@ def test_journal_why_peek_note_and_search(tmp_path: Path, monkeypatch) -> None:
     assert _slash("/open", tmp_path, cfg, history, session, totals) == ""
     assert _slash("/open missing", tmp_path, cfg, history, session, totals) == ""
     assert _slash("/status", tmp_path, cfg, history, session, totals) == ""
+    assert _slash("/qa", tmp_path, cfg, history, session, totals) == ""
+    assert (tmp_path / ".forge" / "last-qa.json").is_file()

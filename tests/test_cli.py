@@ -323,3 +323,24 @@ def test_context_and_terminal_cli(tmp_path) -> None:
     assert main(["cat", "missing.py", "--repo", str(tmp_path)]) == 2
     assert main(["open", "missing-dir", "--repo", str(tmp_path)]) == 2
 
+
+def test_qa_saves_why_and_journal_filter(tmp_path, monkeypatch, capsys) -> None:
+    from forge_code.journal import append_entry
+
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='t'\nversion='0'\n", encoding="utf-8")
+    (tmp_path / "ok.py").write_text("VALUE = 1\n", encoding="utf-8")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_ok.py").write_text("def test_ok():\n    assert 1 == 1\n", encoding="utf-8")
+    append_entry(tmp_path, task="add README", writes=["README.md"], qa_ok=True)
+    append_entry(tmp_path, task="fix tests", writes=["ok.py"], qa_ok=True)
+    assert main(["qa", "--repo", str(tmp_path)]) == 0
+    assert (tmp_path / ".forge" / "last-qa.json").is_file()
+    assert main(["why", "--repo", str(tmp_path)]) == 0
+    assert main(["journal", "README", "--repo", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "add README" in out
+    assert "fix tests" not in out
+    assert main(["last", "--repo", str(tmp_path)]) == 0
+    assert "fix tests" in capsys.readouterr().out
+

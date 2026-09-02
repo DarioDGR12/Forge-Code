@@ -354,7 +354,11 @@ def _slash(
             save_config(cfg)
             ok("auto QA off")
             return ""
-        qa_panel(run_qa(root, timeout=cfg.qa.timeout, extra=cfg.qa.extra))
+        from forge_code.qa.runner import save_last_qa
+
+        report = run_qa(root, timeout=cfg.qa.timeout, extra=cfg.qa.extra)
+        save_last_qa(root, report)
+        qa_panel(report)
         return ""
     if cmd == "compact":
         compacted = compact_messages(history, hard=arg == "hard")

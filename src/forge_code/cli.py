@@ -244,7 +244,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "models":
         return _cmd_models(cfg)
     if args.cmd == "qa":
+        from forge_code.qa.runner import save_last_qa
+
         report = run_qa(root, timeout=cfg.qa.timeout, extra=cfg.qa.extra)
+        save_last_qa(root, report)
         qa_panel(report)
         return 0 if report.ok else 1
     if args.cmd == "init":
@@ -512,7 +515,10 @@ def _cmd_doctor(root: Path, cfg) -> int:
     console.print("commands " + (", ".join(f"/{n}" for n in cmds) or "(none)"))
     mem = root / ".forge" / "memory.md"
     console.print(f"memory   {'yes' if mem.is_file() else '(empty)'}")
+    from forge_code.qa.runner import save_last_qa
+
     report = run_qa(root, timeout=cfg.qa.timeout, extra=cfg.qa.extra)
+    save_last_qa(root, report)
     qa_panel(report)
     save_config(cfg)
     return 0 if report.ok else 1
